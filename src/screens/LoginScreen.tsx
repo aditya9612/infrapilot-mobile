@@ -61,15 +61,15 @@ export function LoginScreen() {
                     {/* Three Feature Tags */}
                     <View className="flex-row items-center justify-center gap-2 w-full px-5 mt-2">
                         <View className="flex-row items-center bg-[#0d2a58] border border-blue-400/20 rounded-xl px-2 py-2 flex-1 justify-center">
-                            <Target size={12} color="#3b82f6" />
+                            <Target size={12} color="#2563EB" />
                             <Text className="text-[8px] font-bold text-blue-100 ml-1.5 leading-tight text-center">REAL-TIME{'\n'}TRACKING</Text>
                         </View>
                         <View className="flex-row items-center bg-[#0d2a58] border border-blue-400/20 rounded-xl px-2 py-2 flex-1 justify-center">
-                            <Box size={12} color="#3b82f6" />
+                            <Box size={12} color="#2563EB" />
                             <Text className="text-[8px] font-bold text-blue-100 ml-1.5 leading-tight text-center">SMART{'\n'}ALLOCATION</Text>
                         </View>
                         <View className="flex-row items-center bg-[#0d2a58] border border-blue-400/20 rounded-xl px-2 py-2 flex-1 justify-center">
-                            <BarChart2 size={12} color="#3b82f6" />
+                            <BarChart2 size={12} color="#2563EB" />
                             <Text className="text-[8px] font-bold text-blue-100 ml-1.5 leading-tight text-center">PROJECT{'\n'}INSIGHTS</Text>
                         </View>
                     </View>
@@ -83,15 +83,15 @@ export function LoginScreen() {
                 style={styles.bottomSheet}
             >
                 {/* Drag Handle Indicator */}
-                <View className="w-10 h-1 bg-slate-200 rounded-full self-center mb-5" />
+                <View className="w-10 h-1 bg-gray-200 rounded-full self-center mb-5" />
 
                 {/* Step Indicator */}
                 <View className="flex-row items-center mb-6">
                     <View className="flex-row gap-1 mr-3">
                         <View className="h-1.5 w-6 bg-blue-600 rounded-full" />
-                        <View className="h-1.5 w-6 bg-slate-200 rounded-full" />
+                        <View className="h-1.5 w-6 bg-gray-200 rounded-full" />
                     </View>
-                    <Text className="text-slate-400 text-xs font-semibold">Step 1 of 2</Text>
+                    <Text className="text-gray-400 text-xs font-semibold">Step 1 of 2</Text>
                 </View>
 
                 {/* Header content */}
@@ -100,8 +100,8 @@ export function LoginScreen() {
                         <Shield size={24} color="#2563eb" fill="#2563eb" className="opacity-90" />
                     </View>
                     <View className="flex-1 gap-1 pt-1">
-                        <Text className="text-2xl font-extrabold text-slate-800">Secure Login</Text>
-                        <Text className="text-sm font-medium text-slate-500 leading-snug pr-4">
+                        <Text className="text-2xl font-extrabold text-gray-800">Secure Login</Text>
+                        <Text className="text-sm font-medium text-gray-500 leading-snug pr-4">
                             Enter your mobile number to receive a secure OTP
                         </Text>
                     </View>
@@ -109,20 +109,20 @@ export function LoginScreen() {
 
                 {/* Mobile Number Input */}
                 <View className="mb-8">
-                    <Text className="text-sm font-bold text-slate-800 mb-3 ml-1">Mobile Number</Text>
+                    <Text className="text-sm font-bold text-gray-800 mb-3 ml-1">Mobile Number</Text>
 
-                    <View className="flex-row items-center bg-white border border-slate-200 rounded-2xl overflow-hidden focus:border-blue-600 focus:bg-blue-50/20 transition-all">
+                    <View className="flex-row items-center bg-white border border-gray-200 rounded-2xl overflow-hidden focus:border-blue-600 focus:bg-blue-50/20 transition-all">
 
                         {/* Country Code Picker (Fake dropdown) */}
-                        <TouchableOpacity className="flex-row items-center pl-3 pr-2 py-4 border-r border-slate-200 bg-slate-50/50">
+                        <TouchableOpacity className="flex-row items-center pl-3 pr-2 py-4 border-r border-gray-200 bg-gray-50/50">
                             <Text className="text-[15px] mr-1">🇮🇳</Text>
-                            <Text className="text-slate-700 text-[15px] font-bold mr-1">+91</Text>
+                            <Text className="text-gray-700 text-[15px] font-bold mr-1">+91</Text>
                             <ChevronDown size={14} color="#94a3b8" />
                         </TouchableOpacity>
 
                         {/* Input Field */}
                         <TextInput
-                            className="flex-1 px-3 py-4 text-slate-900 text-base font-semibold"
+                            className="flex-1 px-3 py-4 text-gray-900 text-base font-semibold"
                             placeholder="Enter your registered mobile number"
                             placeholderTextColor="#cbd5e1"
                             keyboardType="phone-pad"
@@ -149,6 +149,29 @@ export function LoginScreen() {
                     </View>
                     <ArrowRight size={20} color="white" />
                 </TouchableOpacity>
+
+                {/* Developer Mock Logins - Temporary */}
+                <View className="mt-8 pt-4 border-t border-gray-200">
+                    <Text className="text-xs font-bold text-gray-400 text-center mb-3">DEV ONLY: MOCK LOGINS</Text>
+                    <View className="flex-row flex-wrap justify-center gap-2">
+                        {[
+                            { name: 'Admin', path: '/(admin)/dashboard' },
+                            { name: 'Site Engineer', path: '/engineer/dashboard' },
+                            { name: 'Project Manager', path: '/manager/dashboard' },
+                            { name: 'Client', path: '/client/dashboard' },
+                            { name: 'Accountant', path: '/accountant/dashboard' },
+                            { name: 'Labour', path: '/labour/dashboard' }
+                        ].map((role) => (
+                            <TouchableOpacity
+                                key={role.name}
+                                onPress={() => router.push(role.path as any)}
+                                className="bg-gray-100 rounded-lg px-3 py-2 border border-gray-200"
+                            >
+                                <Text className="text-xs font-semibold text-gray-600">{role.name}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                </View>
 
             </View>
         </KeyboardAvoidingView>

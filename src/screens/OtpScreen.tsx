@@ -11,20 +11,20 @@ export function OtpScreen() {
         <View className="flex-1 bg-white items-center justify-center p-8">
             <TouchableOpacity
                 onPress={() => router.back()}
-                className="absolute top-16 left-6 p-2 rounded-full bg-slate-100"
+                className="absolute top-16 left-6 p-2 rounded-full bg-gray-100"
             >
                 <ArrowLeft size={24} color="#0f172a" />
             </TouchableOpacity>
 
-            <Text className="text-3xl font-extrabold text-slate-800 mb-4 text-center">
+            <Text className="text-3xl font-extrabold text-gray-800 mb-4 text-center">
                 Enter OTP
             </Text>
-            <Text className="text-slate-500 text-center mb-10 leading-6 px-4">
+            <Text className="text-gray-500 text-center mb-10 leading-6 px-4">
                 A verification code has been sent to{'\n'}
-                <Text className="font-bold text-slate-800">+91 {mobileNumber}</Text>
+                <Text className="font-bold text-gray-800">+91 {mobileNumber}</Text>
             </Text>
 
-            <Text className="text-slate-400 italic">OTP Inputs & Verification Form Coming Soon...</Text>
+            <Text className="text-gray-400 italic">OTP Inputs & Verification Form Coming Soon...</Text>
         </View>
     );
 }
