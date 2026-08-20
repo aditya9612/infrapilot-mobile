@@ -155,7 +155,7 @@ export function LoginScreen() {
                     <Text className="text-xs font-bold text-gray-400 text-center mb-3">DEV ONLY: MOCK LOGINS</Text>
                     <View className="flex-row flex-wrap justify-center gap-2">
                         {[
-                            { name: 'Admin', path: '/(admin)/dashboard' },
+                            { name: 'Admin', path: '/admin/admindashboard' },
                             { name: 'Site Engineer', path: '/engineer/dashboard' },
                             { name: 'Project Manager', path: '/manager/dashboard' },
                             { name: 'Client', path: '/client/dashboard' },
