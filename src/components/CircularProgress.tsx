@@ -25,16 +25,16 @@ export default function CircularProgress({
         <View style={{ width: radius * 2, height: radius * 2, justifyContent: 'center', alignItems: 'center' }}>
             <Svg width={radius * 2} height={radius * 2} viewBox={`0 0 ${halfCircle * 2} ${halfCircle * 2}`}>
                 <Circle
-                    cx="50%"
-                    cy="50%"
+                    cx={halfCircle}
+                    cy={halfCircle}
                     r={radius}
                     stroke={unfilledColor}
                     strokeWidth={strokeWidth}
                     fill="transparent"
                 />
                 <Circle
-                    cx="50%"
-                    cy="50%"
+                    cx={halfCircle}
+                    cy={halfCircle}
                     r={radius}
                     stroke={color}
                     strokeWidth={strokeWidth}

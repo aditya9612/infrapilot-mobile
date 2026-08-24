@@ -13,7 +13,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import { authService } from '../services/authService';
+import { authService } from '../../services/authService';
 
 const { height } = Dimensions.get('window');
 
@@ -28,7 +28,7 @@ export function LoginScreen() {
 
         try {
             // Hit the actual testing API endpoint via our unified service
-            await authService.requestOtp(mobileNumber);
+            await authService.login(mobileNumber);
 
             // If successful, navigate to the OTP verification screen via Expo Router
             console.log('OTP requested, navigating to OTP screen');
@@ -52,7 +52,7 @@ export function LoginScreen() {
 
                     <View className="flex-1 w-full items-center justify-center px-4">
                         <Image
-                            source={require('../../assets/images/logo-full.png')}
+                            source={require('../../../assets/images/logo-full.png')}
                             className="w-full h-full max-h-[85%] ml-[52px]"
                             resizeMode="contain"
                         />

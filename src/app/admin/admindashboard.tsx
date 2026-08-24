@@ -10,7 +10,8 @@ import {
 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { AdminDashboardData } from '../../../services/dashboardService';
+import TopHeader from '../../components/TopHeader';
+import { AdminDashboardData } from '../../services/dashboardService';
 
 const formatCompactCurrency = (amount: number) => {
     if (amount >= 1e9) {
@@ -95,15 +96,9 @@ export default function AdminDashboardScreen() {
     return (
         <ScrollView className="flex-1 bg-gray-50" showsVerticalScrollIndicator={false}>
             {/* Header Toolbar (Project Pulse) */}
-            <View className="px-4 pt-14 pb-4 bg-white shadow-sm border-b border-gray-200">
-                <View className="flex-row items-center mb-0.5">
-                    <TouchableOpacity onPress={() => (navigation as any).openDrawer()} className="p-2 -ml-2 mr-3 bg-gray-50 rounded-full border border-gray-100 shadow-sm">
-                        <Menu size={20} color="#1F2937" />
-                    </TouchableOpacity>
-                    <Text className="text-2xl font-extrabold text-gray-800 tracking-tight flex-1">Admin Overview</Text>
-                </View>
-                <Text className="text-xs text-gray-500 font-medium mt-0.5 mb-4">Real-time infrastructure health and budget monitoring.</Text>
-
+            <TopHeader title="Admin Dashboard" subtitle="Real-time infrastructure health and budget monitoring." />
+            
+            <View className="px-4 pb-4 bg-white shadow-sm border-b border-gray-200">
                 {/* Horizontal Action Pills */}
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
                     <TouchableOpacity className="flex-row items-center bg-white border border-gray-200 px-3 py-1.5 rounded-full mr-2 shadow-sm">
@@ -272,7 +267,7 @@ export default function AdminDashboardScreen() {
                 </View>
                 <View className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                     <Text className="text-[9px] font-semibold text-gray-400 mb-4">Planned vs Actual % progress across disciplines</Text>
-                    {data.discipline_progress.map((item, idx) => (
+                    {data.discipline_progress.map((item: any, idx: number) => (
                         <View key={idx} className={`${idx !== data.discipline_progress.length - 1 ? 'mb-4' : ''}`}>
                             <View className="flex-row justify-between mb-1.5">
                                 <Text className="font-bold text-gray-700 text-xs">{item.name}</Text>
@@ -294,7 +289,7 @@ export default function AdminDashboardScreen() {
             <View className="px-4 mt-6">
                 <Text className="text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-widest pl-1">Master Projects Overview</Text>
 
-                {data.master_projects.map((project, idx) => (
+                {data.master_projects.map((project: any, idx: number) => (
                     <View key={project.id} className={`bg-white p-4 ${idx === 0 ? 'rounded-t-xl' : ''} ${idx === data.master_projects.length - 1 ? 'rounded-b-xl border-b-0' : 'border-b border-gray-100'} border-x border-t border-gray-100 shadow-sm mb-1`}>
                         <View className="flex-row justify-between items-start mb-2">
                             <View>
@@ -336,7 +331,7 @@ export default function AdminDashboardScreen() {
             <View className="px-4 mt-6 mb-10">
                 <Text className="text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-widest pl-1">Activity Pulse</Text>
                 <View className="bg-white rounded-xl py-2 shadow-sm border border-gray-100">
-                    {data.recent_activities.map((activity, idx) => {
+                    {data.recent_activities.map((activity: any, idx: number) => {
                         let IconComponent = Bell;
                         let iconColor = "#1F2937";
 

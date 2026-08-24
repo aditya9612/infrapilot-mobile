@@ -1,5 +1,6 @@
 import { useNavigation, useRouter } from 'expo-router';
 import { Menu, Activity, AlertCircle, Package, Users, CheckCircle2, CircleDashed, CheckCircle, Clock } from 'lucide-react-native';
+import TopHeader from '../../components/TopHeader';
 import React, { useEffect, useState } from 'react';
 import { Text, TouchableOpacity, View, ScrollView, ActivityIndicator } from 'react-native';
 import { dashboardService, EngineerDashboardData } from '../../services/dashboardService';
@@ -76,15 +77,7 @@ export default function EngineerDashboard() {
     return (
         <View className="flex-1 bg-gray-50 flex-col">
             {/* Header */}
-            <View className="px-4 pt-12 pb-4 bg-[#208AEF] shadow-sm flex-row items-center">
-                <TouchableOpacity onPress={() => (navigation as any).openDrawer()} className="p-2 -ml-2 mr-3 bg-white/20 rounded-full">
-                    <Menu size={20} color="#FFFFFF" />
-                </TouchableOpacity>
-                <View className="flex-1">
-                    <Text className="text-xl font-bold text-white">Site Overview</Text>
-                    <Text className="text-xs text-white/80">InfraPilot • Engineer • Dashboard</Text>
-                </View>
-            </View>
+            <TopHeader title="Dashboard" subtitle="Engineer • Overview • Status" />
 
             <ScrollView className="flex-1 px-4 py-6" contentContainerStyle={{ paddingBottom: 40 }}>
                 {/* Project Header */}
