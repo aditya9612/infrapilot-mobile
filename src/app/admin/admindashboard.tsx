@@ -4,14 +4,16 @@ import {
     Bell,
     FileText,
     HardHat,
-    Menu,
     Plus,
     Trash2
 } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { AddUserModal } from '../../components/modals/AddUserModal';
+import { CreateBoqModal } from '../../components/modals/CreateBoqModal';
+import { NewProjectModal } from '../../components/modals/NewProjectModal';
 import TopHeader from '../../components/TopHeader';
-import { AdminDashboardData } from '../../services/dashboardService';
+import { AdminDashboardData, dashboardService } from '../../services/dashboardService';
 
 const formatCompactCurrency = (amount: number) => {
     if (amount >= 1e9) {
@@ -34,46 +36,16 @@ export default function AdminDashboardScreen() {
     const navigation = useNavigation();
     const [data, setData] = useState<AdminDashboardData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+    const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
+    const [isCreateBoqModalOpen, setIsCreateBoqModalOpen] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                // Fetch from the real endpoint or use fallback for now if endpoint isn't live
-                // const result = await dashboardService.getAdminDashboard();
-                // setData(result);
-
-                const mockData: AdminDashboardData = {
-                    project_overview: { total: 12, active: 7, completed: 2, delayed: 3 },
-                    financial: { revenue: 2066.19, expense: 613083.49, profit: -611017.30 },
-                    vitals: {
-                        pending_approvals: 23,
-                        action_items: 3,
-                        site_issues_open: 16,
-                        total_labour_today: 1,
-                        material_used_today: 1
-                    },
-                    kpi_comparison: { current_month: 13083.49, previous_month: 600000.00, difference: -586916.51 },
-                    discipline_progress: [
-                        { name: 'Civil', planned_cost: 100000, actual_cost: 95000, progress_percentage: 85 },
-                        { name: 'MEP', planned_cost: 50000, actual_cost: 55000, progress_percentage: 60 }
-                    ],
-                    master_projects: [
-                        { id: '1', name: 'Rohan Harita', health: 'On Track', start_date: '2023-01-10', progress: 17.37 },
-                        { id: '2', name: 'Gini Vivante', health: 'Delayed', start_date: '2023-03-15', progress: 20 },
-                        { id: '3', name: 'Sara City', health: 'At Risk', start_date: '2023-05-10', progress: 23.37 }
-                    ],
-                    recent_activities: [
-                        { id: '1', type: 'System', description: 'System: CREATE_PO', timestamp: '30 Aug 17:31' },
-                        { id: '2', type: 'System', description: 'System: CREATE_PO', timestamp: '30 Aug 17:30' },
-                        { id: '3', type: 'System', description: 'System: RECEIVE_MATERIAL', timestamp: '30 Aug 11:11' },
-                        { id: '4', type: 'Task', description: 'System: TASK_COMPLETED', timestamp: '30 Aug 10:35' },
-                    ]
-                };
-
-                setTimeout(() => {
-                    setData(mockData);
-                    setIsLoading(false);
-                }, 1000);
+                const result = await dashboardService.getAdminDashboard();
+                setData(result);
+                setIsLoading(false);
 
             } catch (error) {
                 console.error("Dashboard failed to load", error);
@@ -97,19 +69,19 @@ export default function AdminDashboardScreen() {
         <ScrollView className="flex-1 bg-gray-50" showsVerticalScrollIndicator={false}>
             {/* Header Toolbar (Project Pulse) */}
             <TopHeader title="Admin Dashboard" subtitle="Real-time infrastructure health and budget monitoring." />
-            
+
             <View className="px-4 pb-4 bg-white shadow-sm border-b border-gray-200">
                 {/* Horizontal Action Pills */}
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
-                    <TouchableOpacity className="flex-row items-center bg-white border border-gray-200 px-3 py-1.5 rounded-full mr-2 shadow-sm">
+                    <TouchableOpacity onPress={() => setIsNewProjectModalOpen(true)} className="flex-row items-center bg-white border border-gray-200 px-3 py-1.5 rounded-full mr-2 shadow-sm">
                         <Plus size={14} color="#1F2937" className="mr-1" />
                         <Text className="text-xs font-bold text-gray-700">New Project</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity className="flex-row items-center bg-white border border-gray-200 px-3 py-1.5 rounded-full mr-2 shadow-sm">
+                    <TouchableOpacity onPress={() => setIsAddUserModalOpen(true)} className="flex-row items-center bg-white border border-gray-200 px-3 py-1.5 rounded-full mr-2 shadow-sm">
                         <Plus size={14} color="#1F2937" className="mr-1" />
                         <Text className="text-xs font-bold text-gray-700">Add User</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity className="flex-row items-center bg-white border border-gray-200 px-3 py-1.5 rounded-full mr-2 shadow-sm">
+                    <TouchableOpacity onPress={() => setIsCreateBoqModalOpen(true)} className="flex-row items-center bg-white border border-gray-200 px-3 py-1.5 rounded-full mr-2 shadow-sm">
                         <Plus size={14} color="#1F2937" className="mr-1" />
                         <Text className="text-xs font-bold text-gray-700">Create BOQ</Text>
                     </TouchableOpacity>
@@ -190,7 +162,7 @@ export default function AdminDashboardScreen() {
                         <View className="w-1/2 flex-row pb-2">
                             <View className="flex-1">
                                 <Text className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Active Users</Text>
-                                <Text className="text-lg font-black text-blue-600 my-0.5">{data.vitals.pending_approvals + 19}</Text>
+                                <Text className="text-lg font-black text-blue-600 my-0.5">{data.active_users}</Text>
                                 <Text className="text-[8px] font-semibold text-gray-400">Active on app</Text>
                             </View>
                         </View>
@@ -294,19 +266,19 @@ export default function AdminDashboardScreen() {
                         <View className="flex-row justify-between items-start mb-2">
                             <View>
                                 <Text className="text-sm font-bold text-gray-800">{project.name}</Text>
-                                <Text className="text-[10px] text-gray-500 font-medium mt-0.5">{project.start_date} TO 2026-12-01</Text>
+                                <Text className="text-[10px] text-gray-500 font-medium mt-0.5">{project.start_date} TO {project.end_date || 'N/A'}</Text>
                             </View>
-                            <View className={`px-2 py-1 flex-row items-center rounded border ${project.health === 'On Track' ? 'bg-green-50 border-green-200' :
-                                project.health === 'Delayed' ? 'bg-red-50 border-red-200' :
+                            <View className={`px-2 py-1 flex-row items-center rounded border ${project.health === 'ON TRACK' ? 'bg-green-50 border-green-200' :
+                                project.health === 'DELAYED' ? 'bg-red-50 border-red-200' :
                                     project.health === 'COMPLETED' ? 'bg-blue-50 border-blue-200' :
                                         'bg-amber-50 border-amber-200'
                                 }`}>
-                                <Text className={`text-[9px] font-bold uppercase tracking-wider ${project.health === 'On Track' ? 'text-green-600' :
-                                    project.health === 'Delayed' ? 'text-red-600' :
+                                <Text className={`text-[9px] font-bold uppercase tracking-wider ${project.health === 'ON TRACK' ? 'text-green-600' :
+                                    project.health === 'DELAYED' ? 'text-red-600' :
                                         project.health === 'COMPLETED' ? 'text-blue-600' :
                                             'text-amber-600'
                                     }`}>
-                                    {project.health}
+                                    {project.health.replace('_', ' ')}
                                 </Text>
                             </View>
                         </View>
@@ -314,8 +286,8 @@ export default function AdminDashboardScreen() {
                         <View className="flex-row justify-between items-center">
                             <View className="flex-1 mr-4">
                                 <View className="h-1.5 w-full rounded-full overflow-hidden bg-transparent">
-                                    <View style={{ width: `${project.progress}%` }} className={`h-full rounded-full ${project.health === 'On Track' ? 'bg-green-600' :
-                                        project.health === 'Delayed' ? 'bg-red-600' :
+                                    <View style={{ width: `${project.progress}%` }} className={`h-full rounded-full ${project.health === 'ON TRACK' ? 'bg-green-600' :
+                                        project.health === 'DELAYED' ? 'bg-red-600' :
                                             project.health === 'COMPLETED' ? 'bg-blue-500' :
                                                 'bg-amber-500'
                                         }`} />
@@ -334,26 +306,31 @@ export default function AdminDashboardScreen() {
                     {data.recent_activities.map((activity: any, idx: number) => {
                         let IconComponent = Bell;
                         let iconColor = "#1F2937";
+                        const typeUpper = activity.type.toUpperCase();
 
-                        if (activity.type === 'Invoice') { IconComponent = FileText; iconColor = "#f59e0b"; }
-                        if (activity.type === 'Delete') { IconComponent = Trash2; iconColor = "#DC2626"; }
-                        if (activity.type === 'Task') { IconComponent = HardHat; iconColor = "#2563EB"; }
-                        if (activity.type === 'System') { IconComponent = AlertTriangle; iconColor = "#f59e0b"; }
+                        if (typeUpper.includes('INVOICE') || typeUpper.includes('PO')) { IconComponent = FileText; iconColor = "#2563EB"; }
+                        if (typeUpper.includes('DELETE') || typeUpper.includes('CANCEL')) { IconComponent = Trash2; iconColor = "#DC2626"; }
+                        if (typeUpper.includes('TASK') || typeUpper.includes('PLAN')) { IconComponent = HardHat; iconColor = "#2563EB"; }
+                        if (typeUpper.includes('SYSTEM') || typeUpper.includes('SUSPEND') || typeUpper.includes('ALERT')) { IconComponent = AlertTriangle; iconColor = "#f59e0b"; }
 
                         return (
-                            <View key={activity.id} className={`flex-row gap-3 items-center px-4 py-2.5 ${idx !== data.recent_activities.length - 1 ? 'border-b border-gray-50' : ''}`}>
+                            <View key={activity.id ?? idx} className={`flex-row gap-3 items-center px-4 py-2.5 ${idx !== data.recent_activities.length - 1 ? 'border-b border-gray-50' : ''}`}>
                                 <View className={`p-1 mt-0.5`}>
                                     <IconComponent size={14} color={iconColor} />
                                 </View>
                                 <View className="flex-1">
                                     <Text className="text-xs font-bold text-gray-700 leading-tight">{activity.description}</Text>
-                                    <Text className="text-[9px] text-gray-400 font-semibold mt-0.5">{activity.timestamp}</Text>
+                                    <Text className="text-[9px] text-gray-400 font-semibold mt-0.5">{activity.time}</Text>
                                 </View>
                             </View>
                         );
                     })}
                 </View>
             </View>
+
+            <AddUserModal visible={isAddUserModalOpen} onClose={() => setIsAddUserModalOpen(false)} />
+            <NewProjectModal visible={isNewProjectModalOpen} onClose={() => setIsNewProjectModalOpen(false)} />
+            <CreateBoqModal visible={isCreateBoqModalOpen} onClose={() => setIsCreateBoqModalOpen(false)} />
 
         </ScrollView>
     );

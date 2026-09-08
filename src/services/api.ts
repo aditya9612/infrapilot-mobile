@@ -9,13 +9,19 @@ export const api = axios.create({
     },
 });
 
-// Interceptor to inject JWT token in the future
+import * as SecureStore from 'expo-secure-store';
+
+// Interceptor to inject JWT token
 api.interceptors.request.use(
     async (config) => {
-        // const token = await SecureStore.getItemAsync('userToken');
-        // if (token) {
-        //   config.headers.Authorization = `Bearer ${token}`;
-        // }
+        try {
+            const token = await SecureStore.getItemAsync('userToken');
+            if (token) {
+                config.headers.Authorization = `Bearer ${token}`;
+            }
+        } catch (error) {
+            console.error('Error fetching token for request:', error);
+        }
         return config;
     },
     (error) => {

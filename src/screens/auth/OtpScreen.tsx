@@ -1,6 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, ArrowRight, BarChart2, Box, ShieldCheck, Target, Lock } from 'lucide-react-native';
-import React, { useState, useRef } from 'react';
+import * as SecureStore from 'expo-secure-store';
+import { jwtDecode } from 'jwt-decode';
+import { ArrowLeft, ArrowRight, BarChart2, Box, Lock, ShieldCheck, Target } from 'lucide-react-native';
+import { useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -12,11 +14,9 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    View,
-    Keyboard
+    View
 } from 'react-native';
 import { authService } from '../../services/authService';
-import { jwtDecode } from 'jwt-decode';
 
 const { height } = Dimensions.get('window');
 
@@ -42,18 +42,20 @@ export function OtpScreen() {
             // A 401 error just means the OTP is invalid or expired.
             const response = await authService.verifyOtp(mobileNumber as string, otp);
             console.log('OTP verified successfully', response);
-            
+
             let role = 'engineer';
-            
-            // Extract role from JWT token
+
+            // Extract role from JWT token and Save to SecureStore
             if (response && response.token && response.token.access_token) {
                 try {
+                    await SecureStore.setItemAsync('userToken', response.token.access_token);
+
                     const decoded = jwtDecode<JwtPayload>(response.token.access_token);
                     if (decoded.role) {
                         role = decoded.role.toLowerCase();
                     }
                 } catch (e) {
-                    console.error("Failed to decode token", e);
+                    console.error("Failed to decode or store token", e);
                 }
             }
 
@@ -85,7 +87,7 @@ export function OtpScreen() {
 
             // Immediately route without alert to match screenshot seamless flow
             router.replace(dashboardRoute as any);
-            
+
         } catch (error: any) {
             console.error(error);
             Alert.alert('Verification Failed', error.response?.data?.detail || 'Invalid OTP or connection error. Please try again.');
@@ -101,8 +103,8 @@ export function OtpScreen() {
             const digit = otp[i] || '';
             const isFocused = otp.length === i;
             boxes.push(
-                <View 
-                    key={i} 
+                <View
+                    key={i}
                     className={`w-[45px] h-[55px] rounded-xl items-center justify-center border-2 ${isFocused ? 'border-blue-600 bg-blue-50/30' : 'border-gray-200 bg-white'}`}
                 >
                     <Text className="text-2xl font-black text-gray-900">{digit}</Text>
@@ -207,8 +209,8 @@ export function OtpScreen() {
                 />
 
                 {/* 6 Individual Boxes UI */}
-                <TouchableOpacity 
-                    className="flex-row justify-between w-full mb-2 mt-2" 
+                <TouchableOpacity
+                    className="flex-row justify-between w-full mb-2 mt-2"
                     onPress={() => inputRef.current?.focus()}
                     activeOpacity={1}
                 >

@@ -24,24 +24,29 @@ export interface AdminDashboardData {
         previous_month: number;
         difference: number;
     };
+    active_users: number;
     discipline_progress: Array<{
         name: string;
-        planned_cost: number;
-        actual_cost: number;
-        progress_percentage: number;
+        planned_cost?: number;
+        actual_cost?: number;
+        progress_percentage?: number;
     }>;
     master_projects: Array<{
-        id: string;
+        id: string | number;
         name: string;
-        health: 'On Track' | 'Delayed' | 'At Risk' | 'COMPLETED';
+        health: string;
         start_date: string;
+        end_date?: string;
         progress: number;
+        performance_score?: number;
     }>;
     recent_activities: Array<{
-        id: string;
-        type: 'Invoice' | 'Delete' | 'Task' | 'Alert' | 'System';
+        id?: string;
+        type: string;
         description: string;
-        timestamp: string;
+        time: string;
+        user?: string;
+        project_name?: string;
     }>;
 }
 

@@ -1,23 +1,16 @@
 import { Drawer } from 'expo-router/drawer';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import AdminDrawer from '../../components/navigation/AdminDrawer';
 
 export default function AdminLayout() {
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
             <Drawer
-                screenOptions={{
-                    headerShown: false, // We use custom headers in our screens
-                    drawerActiveTintColor: '#2563EB',
-                    drawerInactiveTintColor: '#1F2937',
-                }}
+                drawerContent={(props) => <AdminDrawer {...props} />}
+                screenOptions={{ headerShown: false }}
             >
-                <Drawer.Screen
-                    name="admindashboard"
-                    options={{
-                        drawerLabel: 'Dashboard',
-                        title: 'Admin Dashboard',
-                    }}
-                />
+                <Drawer.Screen name="admindashboard" />
+                <Drawer.Screen name="projects" />
             </Drawer>
         </GestureHandlerRootView>
     );
