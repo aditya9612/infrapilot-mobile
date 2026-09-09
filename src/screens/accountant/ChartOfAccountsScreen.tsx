@@ -114,7 +114,7 @@ export function ChartOfAccountsScreen() {
                 <View className="p-4">
 
                     {/* Title + Action Row */}
-                    <View className="flex-row items-start justify-between mb-4 flex-wrap gap-y-3">
+                    <View className="flex-col mb-4 gap-y-3">
                         <View>
                             <Text className="text-lg font-bold text-gray-900">Chart of Accounts</Text>
                             <Text className="text-xs text-gray-500 mt-0.5">Manage hierarchical general ledger accounts for the organization.</Text>

@@ -1,33 +1,38 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, useWindowDimensions } from 'react-native';
 import { useNavigation } from 'expo-router';
-import { Menu, Upload, Download, Plus, Edit2, Search, Link } from 'lucide-react-native';
+import { Menu, Upload, Download, Plus, Edit2, Search, Link, ChevronDown } from 'lucide-react-native';
 
 // ────────── Types ──────────
-type MainTab = 'Dashboard' | 'Vendor Bills' | 'Outstanding' | 'Payment Requests';
+type MainTab = 'Payable' | 'Vendor Bills' | 'Outstanding' | 'Payment Requests';
 type VendorSubTab = 'Create Vendor Bill' | 'Vendor List' | 'Vendor Approval' | 'Vendor Payment';
 
 // ────────── Mock Data ──────────
+const PAYABLES_DATA = [
+    { billNo: 'RA-3', project: 'Metro City', contractor: 'Contractor 1', totalAmount: '₹100', paidAmount: '₹0', pendingAmount: '₹100', status: 'PENDING' },
+    { billNo: 'RA-2', project: 'Metro City', contractor: 'Contractor 1', totalAmount: '₹100', paidAmount: '₹0', pendingAmount: '₹100', status: 'PENDING' },
+    { billNo: 'RA-1', project: 'Metro City', contractor: 'Contractor 1', totalAmount: '₹100', paidAmount: '₹0', pendingAmount: '₹100', status: 'PENDING' },
+];
+
 const VENDOR_LIST = [
     {
         id: '1',
-        name: 'Venom',
-        code: 'RA B8-05',
+        name: 'Om Treders',
+        code: 'bill-0001',
         status: 'PENDING',
-        project: 'Sara City',
-        poNumber: '27',
-        billDate: '2026-06-27',
-        dueDate: '2026-09-19',
-        grossAmount: '₹1,06,000',
-        gstAmount: '₹6,000',
-        tdsAmount: '₹2,000',
-        totalPayable: '₹1,06,000',
-        billItems: [
-            { name: 'Cement', qty: 'Qty: 100 BAGS × ₹400', amount: '₹40,000' },
-            { name: 'Sand', qty: 'Qty: 20 TON × ₹2,000', amount: '₹40,000' },
-            { name: 'Aggregate', qty: 'Qty: 10 ITEM × ₹2,000', amount: '₹20,000' },
-        ],
+        project: 'Metro City',
+        poNumber: '1',
+        billDate: '2026-09-01',
+        dueDate: '2026-09-11',
+        grossAmount: '₹0',
+        gstAmount: '₹0',
+        tdsAmount: '₹0',
+        totalPayable: '₹0',
     },
+];
+
+const APPROVAL_QUEUE_DATA = [
+    { id: '1', vendor: 'Om Treders', bill: 'bill-0001', po: '1', date: '2026-09-01', amount: '₹0' }
 ];
 
 const OUTSTANDING_LIST = [
@@ -37,7 +42,7 @@ const OUTSTANDING_LIST = [
     { party: 'Skyline Electricals', type: 'CONTRACTOR', billNo: 'SERA-1', billDate: '2024-04-15', dueDate: '2024-04-25', amount: '₹4,09,500', paid: '₹0', balance: '₹4,09,500', overdue: false },
 ];
 
-// ────────── FormField ──────────
+// ────────── Components ──────────
 const FormField = ({ label, placeholder, isUrl = false }: { label: string; placeholder?: string; isUrl?: boolean }) => (
     <View className="mb-3 flex-1">
         <Text className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1">{label}</Text>
@@ -57,7 +62,25 @@ const FormDropdown = ({ label, placeholder }: { label: string; placeholder: stri
         <Text className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1">{label}</Text>
         <View className="flex-row items-center justify-between border border-gray-200 rounded-lg px-3 py-2.5 bg-white">
             <Text className="text-xs text-gray-400">{placeholder}</Text>
-            <Text className="text-gray-400 text-xs">▼</Text>
+            <ChevronDown size={14} color="#9CA3AF" />
+        </View>
+    </View>
+);
+
+const PaginationFooter = ({ total, start, end }: any) => (
+    <View className="flex-row flex-wrap items-center justify-between px-4 py-4 bg-white border-t border-gray-100 gap-y-3">
+        <View className="flex-row items-center">
+            <Text className="text-xs text-gray-500 mr-2">Records per page:</Text>
+            <TouchableOpacity className="flex-row items-center bg-gray-50 border border-gray-200 px-2 py-1 rounded">
+                <Text className="text-xs font-medium text-gray-700 mr-2">10</Text>
+                <ChevronDown size={12} color="#6B7280" />
+            </TouchableOpacity>
+        </View>
+        <Text className="text-xs text-gray-500">Showing {start} - {end} of {total} records</Text>
+        <View className="flex-row items-center space-x-1">
+            <TouchableOpacity className="px-2 py-1 bg-gray-50 border border-gray-200 rounded"><Text className="text-[10px] text-gray-400">Prev</Text></TouchableOpacity>
+            <TouchableOpacity className="px-2 py-1 bg-blue-50 border border-blue-200 rounded"><Text className="text-[10px] text-blue-600 font-bold">1</Text></TouchableOpacity>
+            <TouchableOpacity className="px-2 py-1 bg-gray-50 border border-gray-200 rounded"><Text className="text-[10px] text-gray-400">Next</Text></TouchableOpacity>
         </View>
     </View>
 );
@@ -68,8 +91,8 @@ export function PayablesScreen() {
     const { width } = useWindowDimensions();
     const isTablet = width >= 600;
 
-    const [mainTab, setMainTab] = useState<MainTab>('Dashboard');
-    const [vendorSubTab, setVendorSubTab] = useState<VendorSubTab>('Create Vendor Bill');
+    const [mainTab, setMainTab] = useState<MainTab>('Payable');
+    const [vendorSubTab, setVendorSubTab] = useState<VendorSubTab>('Vendor List');
 
     return (
         <View className="flex-1 bg-[#F8FAFC]">
@@ -124,7 +147,7 @@ export function PayablesScreen() {
                     {/* ── Main Tabs ── */}
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-1">
                         <View className="flex-row bg-white border border-gray-200 rounded-xl overflow-hidden">
-                            {(['Dashboard', 'Vendor Bills', 'Outstanding', 'Payment Requests'] as MainTab[]).map((tab) => (
+                            {(['Payable', 'Vendor Bills', 'Outstanding', 'Payment Requests'] as MainTab[]).map((tab) => (
                                 <TouchableOpacity
                                     key={tab}
                                     onPress={() => setMainTab(tab)}
@@ -146,24 +169,24 @@ export function PayablesScreen() {
                     </View>
 
                     {/* ══════════════════════════════════════
-                        DASHBOARD TAB
+                        PAYABLE TAB
                     ══════════════════════════════════════ */}
-                    {mainTab === 'Dashboard' && (
+                    {mainTab === 'Payable' && (
                         <View>
                             {/* Stat Cards — stack vertically on mobile, row on tablet */}
                             <View className={`mb-5 ${isTablet ? 'flex-row gap-3' : 'gap-3'}`}>
                                 {[
-                                    { label: 'TOTAL OUTSTANDING', value: '₹ 0', emoji: '₹', bg: 'bg-red-100', color: 'text-red-500' },
-                                    { label: 'PENDING APPROVALS', value: '0', emoji: '⏳', bg: 'bg-yellow-100', color: 'text-yellow-500' },
-                                    { label: 'TOTAL PAID (THIS MONTH)', value: '₹ 0', emoji: '✓', bg: 'bg-green-100', color: 'text-green-500' },
+                                    { label: 'TOTAL OUTSTANDING', value: '₹300', emoji: '📉', bg: 'bg-red-50', color: 'text-red-500' },
+                                    { label: 'PENDING AMOUNT', value: '₹300', emoji: '⏳', bg: 'bg-yellow-50', color: 'text-yellow-500' },
+                                    { label: 'TOTAL PAID (THIS MONTH)', value: '₹0', emoji: '💸', bg: 'bg-green-50', color: 'text-green-500' },
                                 ].map((card, i) => (
                                     <View key={i} className={`bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex-row items-center justify-between ${isTablet ? 'flex-1' : 'mb-1'}`}>
                                         <View>
                                             <Text className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">{card.label}</Text>
                                             <Text className="text-2xl font-bold text-gray-800">{card.value}</Text>
                                         </View>
-                                        <View className={`w-10 h-10 ${card.bg} rounded-full items-center justify-center`}>
-                                            <Text className={`${card.color} text-base`}>{card.emoji}</Text>
+                                        <View className={`w-8 h-8 ${card.bg} rounded items-center justify-center`}>
+                                            <Text className={`${card.color} text-xs`}>{card.emoji}</Text>
                                         </View>
                                     </View>
                                 ))}
@@ -173,27 +196,71 @@ export function PayablesScreen() {
                             <View className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-4">
                                 <Text className="text-sm font-bold text-gray-800 mb-4">Payables By Date Range</Text>
                                 <View className={`${isTablet ? 'flex-row gap-3 items-end' : 'gap-3'}`}>
-                                    <View className={isTablet ? 'flex-1' : 'mb-3'}>
+                                    <View className={isTablet ? 'w-40' : 'mb-3'}>
                                         <Text className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">START DATE</Text>
-                                        <View className="border border-gray-200 rounded-lg px-3 py-2.5 bg-gray-50">
-                                            <TextInput placeholder="dd-mm-yyyy" placeholderTextColor="#9CA3AF" className="text-xs text-gray-700" />
+                                        <View className="border border-gray-200 rounded-lg px-3 py-2.5 bg-white flex-row justify-between items-center">
+                                            <TextInput placeholder="dd-mm-yyyy" placeholderTextColor="#9CA3AF" className="text-xs text-gray-700 p-0 m-0" />
+                                            <Text className="text-[10px] text-gray-400">📅</Text>
                                         </View>
                                     </View>
-                                    <View className={isTablet ? 'flex-1' : 'mb-3'}>
+                                    <View className={isTablet ? 'w-40' : 'mb-3'}>
                                         <Text className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">END DATE</Text>
-                                        <View className="border border-gray-200 rounded-lg px-3 py-2.5 bg-gray-50">
-                                            <TextInput placeholder="dd-mm-yyyy" placeholderTextColor="#9CA3AF" className="text-xs text-gray-700" />
+                                        <View className="border border-gray-200 rounded-lg px-3 py-2.5 bg-white flex-row justify-between items-center">
+                                            <TextInput placeholder="dd-mm-yyyy" placeholderTextColor="#9CA3AF" className="text-xs text-gray-700 p-0 m-0" />
+                                            <Text className="text-[10px] text-gray-400">📅</Text>
                                         </View>
                                     </View>
                                     <TouchableOpacity className={`px-5 py-2.5 bg-blue-600 rounded-lg ${!isTablet ? 'self-start' : ''}`}>
                                         <Text className="text-xs font-bold text-white">Search</Text>
                                     </TouchableOpacity>
                                 </View>
-                                <View className="mt-6 py-4 items-center">
-                                    <Text className="text-xs text-gray-400 italic text-center">
+                                <View className="mt-8 mb-4 items-center">
+                                    <Text className="text-xs text-gray-400 text-center">
                                         No payables found in this date range. Select dates and search.
                                     </Text>
                                 </View>
+                            </View>
+
+                            {/* All Payables */}
+                            <View className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-8">
+                                <View className="p-4 border-b border-gray-50">
+                                    <Text className="text-sm font-bold text-gray-800">All Payables</Text>
+                                </View>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+                                    <View>
+                                        <View className="flex-row items-center px-4 py-3 bg-gray-50/60 border-b border-gray-100">
+                                            <Text className="w-24 text-[9px] font-bold text-gray-400 uppercase tracking-wider">BILL NO</Text>
+                                            <Text className="w-32 text-[9px] font-bold text-gray-400 uppercase tracking-wider">PROJECT</Text>
+                                            <Text className="w-32 text-[9px] font-bold text-gray-400 uppercase tracking-wider">CONTRACTOR</Text>
+                                            <Text className="w-28 text-[9px] font-bold text-gray-400 uppercase tracking-wider">TOTAL AMOUNT</Text>
+                                            <Text className="w-28 text-[9px] font-bold text-gray-400 uppercase tracking-wider">PAID AMOUNT</Text>
+                                            <Text className="w-28 text-[9px] font-bold text-gray-400 uppercase tracking-wider">PENDING AMOUNT</Text>
+                                            <Text className="w-24 text-[9px] font-bold text-gray-400 uppercase tracking-wider">STATUS</Text>
+                                            <Text className="w-20 text-[9px] font-bold text-gray-400 uppercase tracking-wider">ACTIONS</Text>
+                                        </View>
+                                        {PAYABLES_DATA.map((row, index) => (
+                                            <View key={index} className="flex-row items-center px-4 py-3.5 border-b border-gray-50 bg-white">
+                                                <Text className="w-24 text-xs font-semibold text-blue-600">{row.billNo}</Text>
+                                                <Text className="w-32 text-xs text-gray-700">{row.project}</Text>
+                                                <Text className="w-32 text-xs text-gray-700">{row.contractor}</Text>
+                                                <Text className="w-28 text-xs font-semibold text-gray-800">{row.totalAmount}</Text>
+                                                <Text className="w-28 text-xs font-medium text-green-500">{row.paidAmount}</Text>
+                                                <Text className="w-28 text-xs font-bold text-red-500">{row.pendingAmount}</Text>
+                                                <View className="w-24">
+                                                    <View className="bg-yellow-50 px-2 py-0.5 rounded border border-yellow-200 self-start">
+                                                        <Text className="text-[9px] font-bold text-yellow-600">{row.status}</Text>
+                                                    </View>
+                                                </View>
+                                                <View className="w-20">
+                                                    <TouchableOpacity className="bg-blue-600 px-3 py-1.5 rounded self-start">
+                                                        <Text className="text-[10px] font-bold text-white">Pay</Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </View>
+                                        ))}
+                                    </View>
+                                </ScrollView>
+                                <PaginationFooter total={3} start={1} end={3} />
                             </View>
                         </View>
                     )}
@@ -203,68 +270,61 @@ export function PayablesScreen() {
                     ══════════════════════════════════════ */}
                     {mainTab === 'Vendor Bills' && (
                         <View>
-                            {/* Sub-tabs (scrollable) */}
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-3">
-                                <View className="flex-row gap-2">
-                                    {(['Create Vendor Bill', 'Vendor List', 'Vendor Approval', 'Vendor Payment'] as VendorSubTab[]).map((sub) => (
-                                        <TouchableOpacity
-                                            key={sub}
-                                            onPress={() => setVendorSubTab(sub)}
-                                            className={`px-3 py-2 rounded-lg border ${vendorSubTab === sub ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-200'}`}
-                                        >
-                                            <Text className={`text-xs font-semibold ${vendorSubTab === sub ? 'text-white' : 'text-gray-600'}`}>{sub}</Text>
-                                        </TouchableOpacity>
-                                    ))}
+                            {/* Sub-tabs & Search (Row on tablet, Stack on mobile) */}
+                            <View className={`flex-row justify-between mb-4 ${isTablet ? 'items-center' : 'flex-wrap gap-y-3'}`}>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} className={isTablet ? 'flex-1 mr-4' : 'w-full'}>
+                                    <View className="flex-row items-center gap-2">
+                                        {(['Create Vendor Bill', 'Vendor List', 'Vendor Approval', 'Vendor Payment'] as VendorSubTab[]).map((sub) => (
+                                            <TouchableOpacity
+                                                key={sub}
+                                                onPress={() => setVendorSubTab(sub)}
+                                                className={`px-4 py-2 rounded-full border ${vendorSubTab === sub ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-200'}`}
+                                            >
+                                                <Text className={`text-xs font-semibold ${vendorSubTab === sub ? 'text-white' : 'text-gray-600'}`}>{sub}</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                </ScrollView>
+                                <View className={`flex-row items-center bg-white border border-gray-200 rounded-lg px-3 py-2 ${isTablet ? 'w-64' : 'w-full'}`}>
+                                    <Search size={13} color="#9CA3AF" />
+                                    <TextInput
+                                        placeholder="Search bills, vendors, projects..."
+                                        placeholderTextColor="#9CA3AF"
+                                        className="ml-1.5 text-xs text-gray-700 flex-1 p-0"
+                                    />
                                 </View>
-                            </ScrollView>
-
-                            {/* Search bar */}
-                            <View className="flex-row items-center bg-white border border-gray-200 rounded-lg px-3 py-2 mb-4">
-                                <Search size={13} color="#9CA3AF" />
-                                <TextInput
-                                    placeholder="Search bills, vendors, projects..."
-                                    placeholderTextColor="#9CA3AF"
-                                    className="ml-1.5 text-xs text-gray-700 flex-1"
-                                />
-                            </View>
-
-                            {/* Sub-tab breadcrumb */}
-                            <View className="flex-row items-center mb-4">
-                                <Text className="text-[10px] font-bold text-gray-400 uppercase">PAYABLES</Text>
-                                <Text className="text-[10px] text-gray-300 mx-1">/</Text>
-                                <Text className="text-[10px] font-bold text-blue-500 uppercase">VENDOR BILLS</Text>
                             </View>
 
                             {/* ── Create Vendor Bill ── */}
                             {vendorSubTab === 'Create Vendor Bill' && (
-                                <View className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                                <View className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-8">
                                     {/* Form Header */}
                                     <View className="mb-5">
                                         <View className="flex-row items-center justify-between flex-wrap gap-2 mb-1">
                                             <Text className="text-sm font-bold text-gray-800">
-                                                Create Vendor <Text className="text-blue-600">Bill</Text>
+                                                Create Vendor Bill
                                             </Text>
                                             <View className="flex-row gap-2">
-                                                <TouchableOpacity className="px-3 py-2 border border-gray-200 rounded-lg">
+                                                <TouchableOpacity className="px-4 py-2 border border-gray-200 rounded-lg bg-white">
                                                     <Text className="text-xs font-medium text-gray-600">Cancel</Text>
                                                 </TouchableOpacity>
-                                                <TouchableOpacity className="px-3 py-2 bg-blue-600 rounded-lg">
+                                                <TouchableOpacity className="px-4 py-2 bg-blue-600 rounded-lg">
                                                     <Text className="text-xs font-bold text-white">Save Vendor Bill</Text>
                                                 </TouchableOpacity>
                                             </View>
                                         </View>
                                     </View>
 
-                                    {/* Dropdowns: stack on mobile, row on tablet */}
+                                    {/* Dropdowns */}
                                     <View className={isTablet ? 'flex-row gap-3' : ''}>
-                                        <FormDropdown label="SUPPLIES" placeholder="Select Supplier..." />
+                                        <FormDropdown label="SUPPLIER" placeholder="Select Supplier..." />
                                         {isTablet && <View className="w-3" />}
                                         <FormDropdown label="PROJECT" placeholder="Select Project..." />
                                         {isTablet && <View className="w-3" />}
                                         <FormDropdown label="PURCHASE ORDER" placeholder="Select PO..." />
                                     </View>
 
-                                    {/* Row fields: 2 per row on mobile, 3 on tablet */}
+                                    {/* Row fields */}
                                     {[
                                         [
                                             { label: 'BILL NUMBER', placeholder: 'String' },
@@ -306,7 +366,7 @@ export function PayablesScreen() {
                                     <View className={isTablet ? 'flex-row gap-3' : ''}>
                                         <FormField label="PARTY GSTIN" placeholder="String" />
                                         {isTablet && <View className="w-3" />}
-                                        <FormField label="COST" />
+                                        <FormField label="CGST" />
                                         {isTablet && <View className="w-3" />}
                                         <FormField label="SGST" />
                                     </View>
@@ -325,110 +385,129 @@ export function PayablesScreen() {
                                                 <Text className="text-sm font-bold text-gray-800">Bill Items</Text>
                                                 <Text className="text-[10px] text-gray-400">Add line items for this bill</Text>
                                             </View>
-                                            <TouchableOpacity className="flex-row items-center px-3 py-1.5 border border-blue-600 rounded-lg">
+                                            <TouchableOpacity className="flex-row items-center px-3 py-1.5 border border-blue-600 rounded-lg bg-blue-50/50">
                                                 <Plus size={12} color="#2563EB" />
                                                 <Text className="ml-1 text-xs font-bold text-blue-600">Add Item</Text>
                                             </TouchableOpacity>
                                         </View>
 
-                                        {/* Bill item row header */}
-                                        <View className="flex-row gap-1 px-2 py-1.5 bg-gray-50 rounded-t-lg border border-gray-200 border-b-0">
-                                            <Text className="flex-1 text-[9px] font-bold text-gray-400 uppercase">ITEM NAME</Text>
-                                            <Text className="w-16 text-[9px] font-bold text-gray-400 uppercase">HSN/SAC</Text>
-                                            <Text className="w-10 text-[9px] font-bold text-gray-400 uppercase">QTY</Text>
-                                            <Text className="w-14 text-[9px] font-bold text-gray-400 uppercase">RATE</Text>
-                                            <Text className="w-16 text-[9px] font-bold text-gray-400 uppercase text-right">AMOUNT</Text>
-                                        </View>
-                                        <View className="flex-row gap-1 px-2 py-2 border border-gray-200 rounded-b-lg bg-white">
-                                            <TextInput placeholder="Item description" placeholderTextColor="#9CA3AF" className="flex-1 text-xs text-gray-700 border border-gray-100 rounded px-2 py-1.5 bg-gray-50" />
-                                            <TextInput placeholder="Code" placeholderTextColor="#9CA3AF" className="w-16 text-xs text-gray-700 border border-gray-100 rounded px-2 py-1.5 bg-gray-50" />
-                                            <TextInput placeholder="0" placeholderTextColor="#9CA3AF" className="w-10 text-xs text-gray-700 border border-gray-100 rounded px-2 py-1.5 bg-gray-50" />
-                                            <TextInput placeholder="0" placeholderTextColor="#9CA3AF" className="w-14 text-xs text-gray-700 border border-gray-100 rounded px-2 py-1.5 bg-gray-50" />
-                                            <View className="w-16 items-end justify-center">
-                                                <Text className="text-xs font-semibold text-gray-600">₹0</Text>
+                                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                            <View className="min-w-[600px] flex-1">
+                                                {/* Bill item row header */}
+                                                <View className="flex-row gap-2 px-3 py-2">
+                                                    <Text className="flex-1 text-[9px] font-bold text-gray-400 uppercase tracking-wider">ITEM NAME</Text>
+                                                    <Text className="w-24 text-[9px] font-bold text-gray-400 uppercase tracking-wider">HSN/SAC</Text>
+                                                    <Text className="w-20 text-[9px] font-bold text-gray-400 uppercase tracking-wider">QTY</Text>
+                                                    <Text className="w-24 text-[9px] font-bold text-gray-400 uppercase tracking-wider">RATE</Text>
+                                                    <Text className="w-24 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-right">AMOUNT</Text>
+                                                    <View className="w-8" />
+                                                </View>
+                                                <View className="flex-row gap-2 items-center px-3 py-2 bg-white">
+                                                    <TextInput placeholder="Item description" placeholderTextColor="#9CA3AF" className="flex-1 text-xs text-gray-700 border border-gray-200 rounded-lg px-3 py-2 bg-white" />
+                                                    <TextInput placeholder="Code" placeholderTextColor="#9CA3AF" className="w-24 text-xs text-gray-700 border border-gray-200 rounded-lg px-3 py-2 bg-white" />
+                                                    <TextInput placeholder="0" placeholderTextColor="#9CA3AF" className="w-20 text-xs text-gray-700 border border-gray-200 rounded-lg px-3 py-2 bg-white" />
+                                                    <TextInput placeholder="0" placeholderTextColor="#9CA3AF" className="w-24 text-xs text-gray-700 border border-gray-200 rounded-lg px-3 py-2 bg-white" />
+                                                    <View className="w-24 items-end justify-center">
+                                                        <Text className="text-xs font-bold text-gray-800">₹0</Text>
+                                                    </View>
+                                                    <TouchableOpacity className="w-8 items-center justify-center bg-red-50 rounded-full h-6 w-6">
+                                                        <Text className="text-red-500 text-sm font-bold">×</Text>
+                                                    </TouchableOpacity>
+                                                </View>
                                             </View>
-                                            <TouchableOpacity className="self-center ml-1 w-5 items-center">
-                                                <Text className="text-red-400 text-base font-bold">×</Text>
-                                            </TouchableOpacity>
-                                        </View>
+                                        </ScrollView>
                                     </View>
                                 </View>
                             )}
 
                             {/* ── Vendor List ── */}
                             {vendorSubTab === 'Vendor List' && (
-                                <View>
-                                    <Text className="text-sm font-bold text-gray-800 mb-1">Vendor List</Text>
-                                    <Text className="text-xs text-gray-400 mb-4">Manage financial supplier bills in detailed card view</Text>
+                                <View className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-8">
+                                    <View className="p-4 border-b border-gray-50">
+                                        <Text className="text-sm font-bold text-gray-800">Vendor List</Text>
+                                        <Text className="text-xs text-gray-400 mt-0.5">Manage material supplier bills in detailed card view</Text>
+                                    </View>
                                     {VENDOR_LIST.map((vendor) => (
-                                        <View key={vendor.id} className="bg-white rounded-xl border border-gray-200 shadow-sm mb-4 overflow-hidden">
-                                            {/* Card Header */}
-                                            <View className="p-4 border-b border-gray-100 flex-row items-start justify-between">
+                                        <View key={vendor.id} className="border-b border-gray-100 bg-white">
+                                            {/* Top info */}
+                                            <View className="p-4 flex-row items-center justify-between">
                                                 <View>
                                                     <Text className="text-sm font-bold text-gray-800">{vendor.name}</Text>
                                                     <Text className="text-xs text-blue-500 mt-0.5">{vendor.code}</Text>
                                                 </View>
                                                 <View className="flex-row items-center gap-2">
-                                                    <View className="px-3 py-1 bg-red-50 border border-red-200 rounded-full">
-                                                        <Text className="text-[10px] font-bold text-red-500">{vendor.status}</Text>
+                                                    <View className="px-2 py-1 bg-yellow-50 border border-yellow-200 rounded">
+                                                        <Text className="text-[10px] font-bold text-yellow-600">{vendor.status}</Text>
                                                     </View>
-                                                    <TouchableOpacity><Edit2 size={14} color="#9CA3AF" /></TouchableOpacity>
+                                                    <TouchableOpacity className="p-1.5 border border-gray-200 rounded-lg bg-white"><Edit2 size={12} color="#9CA3AF" /></TouchableOpacity>
                                                 </View>
                                             </View>
-
-                                            {/* Card Body */}
-                                            <View className="p-4">
-                                                {/* Info Grid */}
-                                                <View className={`mb-4 ${isTablet ? 'flex-row flex-wrap gap-x-6' : ''}`}>
-                                                    {[
-                                                        { label: 'PROJECT', value: vendor.project },
-                                                        { label: 'PO NUMBER', value: vendor.poNumber },
-                                                        { label: 'BILL DATE', value: vendor.billDate },
-                                                        { label: 'DUE DATE', value: vendor.dueDate },
-                                                    ].map((info, i) => (
-                                                        <View key={i} className={isTablet ? 'mb-2' : 'flex-row items-center justify-between py-1.5 border-b border-gray-50'}>
-                                                            <Text className="text-[9px] font-bold text-gray-400 uppercase">{info.label}</Text>
-                                                            <Text className="text-xs font-semibold text-gray-700">{info.value}</Text>
-                                                        </View>
-                                                    ))}
-                                                </View>
-
-                                                {/* Amount Grid */}
-                                                <View className={`mb-4 p-3 bg-blue-50/50 rounded-xl ${isTablet ? 'flex-row flex-wrap gap-x-8' : ''}`}>
-                                                    {[
-                                                        { label: 'GROSS AMOUNT', value: vendor.grossAmount, color: 'text-gray-800' },
-                                                        { label: 'GST AMOUNT', value: vendor.gstAmount, color: 'text-gray-800' },
-                                                        { label: 'TDS AMOUNT', value: vendor.tdsAmount, color: 'text-gray-800' },
-                                                        { label: 'TOTAL PAYABLE', value: vendor.totalPayable, color: 'text-blue-600' },
-                                                    ].map((amt, i) => (
-                                                        <View key={i} className={isTablet ? 'mb-2' : 'flex-row items-center justify-between py-1.5'}>
-                                                            <Text className="text-[9px] font-bold text-gray-400 uppercase">{amt.label}</Text>
-                                                            <Text className={`text-sm font-bold ${amt.color}`}>{amt.value}</Text>
-                                                        </View>
-                                                    ))}
-                                                </View>
-
-                                                {/* Bill Items */}
-                                                <Text className="text-[9px] font-bold text-gray-500 uppercase mb-2">
-                                                    BILL ITEMS {vendor.billItems.length}
-                                                </Text>
-                                                {vendor.billItems.map((item, i) => (
-                                                    <View key={i} className="flex-row items-center justify-between bg-gray-50 rounded-lg px-3 py-2.5 mb-2">
-                                                        <View>
-                                                            <Text className="text-xs font-bold text-blue-600">{item.name}</Text>
-                                                            <Text className="text-[10px] text-gray-400">{item.qty}</Text>
-                                                        </View>
-                                                        <Text className="text-xs font-bold text-gray-700">{item.amount}</Text>
+                                            {/* Details in scrollable area */}
+                                            <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+                                                <View className="flex-row px-4 pb-4">
+                                                    <View className="w-40 pr-2">
+                                                        <Text className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">PROJECT</Text>
+                                                        <Text className="text-xs font-semibold text-gray-800">{vendor.project}</Text>
+                                                        <Text className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mt-3 mb-1">GROSS AMOUNT</Text>
+                                                        <Text className="text-xs font-bold text-gray-800">{vendor.grossAmount}</Text>
                                                     </View>
-                                                ))}
-                                            </View>
+                                                    <View className="w-32 pr-2">
+                                                        <Text className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">PO NUMBER</Text>
+                                                        <Text className="text-xs font-semibold text-gray-800">{vendor.poNumber}</Text>
+                                                        <Text className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mt-3 mb-1">GST AMOUNT</Text>
+                                                        <Text className="text-xs font-bold text-gray-800">{vendor.gstAmount}</Text>
+                                                    </View>
+                                                    <View className="w-32 pr-2">
+                                                        <Text className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">BILL DATE</Text>
+                                                        <Text className="text-xs font-semibold text-gray-800">{vendor.billDate}</Text>
+                                                        <Text className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mt-3 mb-1">TDS AMOUNT</Text>
+                                                        <Text className="text-xs font-bold text-gray-800">{vendor.tdsAmount}</Text>
+                                                    </View>
+                                                    <View className="w-32 pr-2">
+                                                        <Text className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">DUE DATE</Text>
+                                                        <Text className="text-xs font-semibold text-gray-800">{vendor.dueDate}</Text>
+                                                        <Text className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mt-3 mb-1">TOTAL PAYABLE</Text>
+                                                        <Text className="text-xs font-bold text-gray-800">{vendor.totalPayable}</Text>
+                                                    </View>
+                                                </View>
+                                            </ScrollView>
                                         </View>
                                     ))}
+                                    <PaginationFooter total={1} start={1} end={1} />
                                 </View>
                             )}
 
-                            {/* ── Stubs ── */}
-                            {(vendorSubTab === 'Vendor Approval' || vendorSubTab === 'Vendor Payment') && (
+                            {/* ── Vendor Approval ── */}
+                            {vendorSubTab === 'Vendor Approval' && (
+                                <View className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-8">
+                                    <View className="p-4 border-b border-gray-50">
+                                        <Text className="text-sm font-bold text-gray-800">Bill Approval Queue</Text>
+                                        <Text className="text-xs text-gray-400 mt-0.5">Bills pending manager or finance approval</Text>
+                                    </View>
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+                                        <View className="min-w-full">
+                                            {APPROVAL_QUEUE_DATA.map((row) => (
+                                                <View key={row.id} className="flex-row items-center justify-between p-4 border-b border-gray-50 bg-white">
+                                                    <View className="mr-8">
+                                                        <Text className="text-sm font-bold text-gray-800 mb-1">{row.vendor} — <Text className="text-blue-500 font-mono">{row.bill}</Text></Text>
+                                                        <Text className="text-[10px] text-gray-500">PO: {row.po} • Date: {row.date}</Text>
+                                                    </View>
+                                                    <View className="flex-row items-center">
+                                                        <Text className="text-sm font-bold text-gray-800 mr-4">{row.amount}</Text>
+                                                        <TouchableOpacity className="px-4 py-2 bg-green-500 rounded-lg">
+                                                            <Text className="text-xs font-bold text-white">Approve</Text>
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                </View>
+                                            ))}
+                                        </View>
+                                    </ScrollView>
+                                    <PaginationFooter total={1} start={1} end={1} />
+                                </View>
+                            )}
+
+                            {/* ── Vendor Payment ── */}
+                            {vendorSubTab === 'Vendor Payment' && (
                                 <View className="bg-white rounded-xl border border-gray-100 shadow-sm p-8 items-center">
                                     <Text className="text-sm font-bold text-gray-600">{vendorSubTab}</Text>
                                     <Text className="text-xs text-gray-400 mt-2">No records found.</Text>
@@ -441,7 +520,7 @@ export function PayablesScreen() {
                         OUTSTANDING TAB
                     ══════════════════════════════════════ */}
                     {mainTab === 'Outstanding' && (
-                        <View className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                        <View className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-8">
                             <View className="p-4 border-b border-gray-50">
                                 <Text className="text-sm font-bold text-gray-800">Outstanding Payables</Text>
                                 <Text className="text-xs text-gray-400 mt-0.5">All pending vendor and contractor bills</Text>
@@ -519,6 +598,7 @@ export function PayablesScreen() {
                                     </View>
                                 </ScrollView>
                             )}
+                            <PaginationFooter total={4} start={1} end={4} />
                         </View>
                     )}
 
@@ -526,7 +606,7 @@ export function PayablesScreen() {
                         PAYMENT REQUESTS TAB
                     ══════════════════════════════════════ */}
                     {mainTab === 'Payment Requests' && (
-                        <View className="bg-white rounded-xl border border-gray-100 shadow-sm p-8 items-center">
+                        <View className="bg-white rounded-xl border border-gray-100 shadow-sm p-8 items-center mb-8">
                             <Text className="text-sm font-bold text-gray-600">Payment Requests</Text>
                             <Text className="text-xs text-gray-400 mt-2">No payment requests found.</Text>
                         </View>
