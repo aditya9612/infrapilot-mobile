@@ -1,823 +1,1018 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import {
+    ChevronDown, ChevronLeft, ChevronRight,
+    Clock,
+    Copy,
+    Edit2,
+    Eye,
+    Grid,
+    Key,
+    Link,
+    Plus,
+    RefreshCw,
+    RotateCcw,
+    Search,
+    Trash2,
+    X
+} from 'lucide-react-native';
+import React, { useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    Modal,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from 'react-native';
 import TopHeader from '../../components/TopHeader';
-import { Search, RefreshCw, ChevronDown, ChevronLeft, ChevronRight, Plus, Key, PenTool, ExternalLink, Edit2, Trash2, FileText, FileSpreadsheet } from 'lucide-react-native';
+import { useProjectContext } from '../../contexts/ProjectContext';
+import { equipmentService } from '../../services/equipmentService';
 
 const TABS = [
-    'Dashboard',
-    'Machinery & Equipment List',
-    'Usage',
-    'Transfer Equipment',
-    'Maintenance',
-    'Rental',
-    'Purchase',
-    'Reports',
-    'Project Report'
+    'Dashboard', 'Machinery & Equipment List', 'Usage', 'Transfer Equipment',
+    'Maintenance', 'Rental', 'Purchase', 'Reports', 'Project Report'
 ];
 
-const MAINTENANCE_ALERTS = [
-    { id: '1', eq: 'Equipment', due: 'Due in -27 days (2026-07-29)', status: 'OVERDUE' },
-    { id: '2', eq: 'Equipment', due: 'Due in -13 days (2026-08-12)', status: 'OVERDUE' },
-    { id: '3', eq: 'Equipment', due: 'Due in -11 days (2026-08-14)', status: 'OVERDUE' },
-    { id: '4', eq: 'Equipment', due: 'Due in 5 days (2026-08-30)', status: 'UPCOMING' },
-    { id: '5', eq: 'Equipment', due: 'Due in 6 days (2026-08-31)', status: 'UPCOMING' },
-    { id: '6', eq: 'Equipment', due: 'Due in 8 days (2026-09-02)', status: 'UPCOMING' },
+const ALL_PROJECTS = [
+    { id: 'all', name: 'All Projects' },
+    { id: '1', name: 'Sara City' },
+    { id: '2', name: 'Gini Viviana' },
+    { id: '3', name: 'Rohan Harita' },
+    { id: '4', name: 'Metro City' },
+    { id: '5', name: 'Kohinoor' },
+    { id: '6', name: 'Mangalam' },
 ];
 
-const EQUIPMENT_LIST = [
-    { id: '1', eq: 'Mixer', code: 'EQ0030', project: 'Sara City', ownership: 'IN_PROJECT', operator: 'Tejas', usage: 'N/A', condition: 'GOOD', maintenance: '2026-08-10' },
-    { id: '2', eq: 'Hammer Gun', code: 'EQ0025', project: 'Sara City', ownership: 'IN_PROJECT', operator: 'Komal', usage: 'N/A', condition: 'GOOD', maintenance: '2026-08-10' },
-    { id: '3', eq: 'Drill', code: 'EQ0012', project: 'Sara City', ownership: 'IN_PROJECT', operator: 'Sumit', usage: 'N/A', condition: 'REPAIR', maintenance: '2026-07-31' },
-    { id: '4', eq: 'Hammer', code: 'EQ-001', project: 'Sara City', ownership: 'IN_PROJECT', operator: 'Tejas', usage: 'N/A', condition: 'GOOD', maintenance: '2026-07-15' },
+const CONDITIONS = ['All Conditions', 'GOOD', 'REPAIR', 'DAMAGED', 'MAINTENANCE'];
+const ALLOCATION_OPTS = ['All Projects', 'Allocated', 'Deallocated'];
+
+const STAT_COLORS = [
+    { color: '#1D4ED8', bg: '#EFF6FF' },
+    { color: '#16A34A', bg: '#F0FDF4' },
+    { color: '#2563EB', bg: '#DBEAFE' },
+    { color: '#D97706', bg: '#FFFBEB' },
+    { color: '#DC2626', bg: '#FEF2F2' },
+    { color: '#7C3AED', bg: '#F5F3FF' },
 ];
 
-const USAGE_SUMMARY = [
-    { id: '1', eq: 'EQ-002', hrs: 8, fuel: 5, avg: '8.0', entries: 1 },
-    { id: '2', eq: 'EQ0011', hrs: 5, fuel: 20, avg: '5.0', entries: 1 },
-    { id: '3', eq: 'E-001', hrs: 6, fuel: 6, avg: '6.0', entries: 1 },
-    { id: '4', eq: 'AU-001', hrs: 5, fuel: 10, avg: '5.0', entries: 1 },
-];
+// ─── Modal Dropdown With ID ───────────────────────────────────────────────────
+function ModalDropdownWithId({
+    options, value, onSelect, label
+}: { options: {id: string | null, name: string}[]; value: string | null; onSelect: (v: string | null) => void; label: string }) {
+    const [open, setOpen] = useState(false);
+    const selectedObj = options.find(o => String(o.id) === String(value)) || options[0] || {name: 'Select'};
+    
+    return (
+        <>
+            <TouchableOpacity
+                onPress={() => setOpen(true)}
+                style={{
+                    flexDirection: 'row', alignItems: 'center',
+                    backgroundColor: '#fff', borderWidth: 1, borderColor: '#D1D5DB',
+                    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10,
+                    minWidth: 150
+                }}
+            >
+                <Text style={{ flex: 1, fontSize: 13, color: '#374151', fontWeight: '600' }} numberOfLines={1}>
+                    {selectedObj.name}
+                </Text>
+                <ChevronDown size={14} color="#6B7280" style={{ marginLeft: 8 }} />
+            </TouchableOpacity>
+            <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+                <TouchableOpacity
+                    style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.38)', justifyContent: 'center' }}
+                    activeOpacity={1}
+                    onPress={() => setOpen(false)}
+                >
+                    <View style={{ marginHorizontal: 28, backgroundColor: '#fff', borderRadius: 14, overflow: 'hidden', elevation: 20 }}>
+                        <View style={{ paddingHorizontal: 16, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
+                            <Text style={{ fontSize: 14, fontWeight: '700', color: '#1F2937' }}>{label}</Text>
+                        </View>
+                        <ScrollView style={{ maxHeight: 300 }}>
+                            {options.map(opt => {
+                                const isSelected = String(value) === String(opt.id);
+                                return (
+                                    <TouchableOpacity
+                                        key={String(opt.id)}
+                                        onPress={() => { onSelect(opt.id); setOpen(false); }}
+                                        style={{
+                                            flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                                            paddingHorizontal: 16, paddingVertical: 13,
+                                            backgroundColor: isSelected ? '#EFF6FF' : '#fff',
+                                            borderBottomWidth: 1, borderBottomColor: '#F9FAFB',
+                                        }}
+                                    >
+                                        <Text style={{ fontSize: 14, color: isSelected ? '#2563EB' : '#374151', fontWeight: isSelected ? '700' : '400' }}>
+                                            {opt.name}
+                                        </Text>
+                                        {isSelected && (
+                                            <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: '#2563EB', alignItems: 'center', justifyContent: 'center' }}>
+                                                <Text style={{ color: '#fff', fontSize: 11, fontWeight: '900' }}>✓</Text>
+                                            </View>
+                                        )}
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </ScrollView>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+        </>
+    );
+}
 
-const TRANSFER_EQUIPMENT = [
-    { id: '1', name: 'Mixer', code: 'EQ0030' },
-    { id: '2', name: 'Hammer Gun', code: 'EQ0025' },
-    { id: '3', name: 'Drill', code: 'EQ0012' },
-    { id: '4', name: 'Hammer', code: 'EQ-001' },
-];
+// ─── Modal Dropdown ───────────────────────────────────────────────────────────
+function ModalDropdown({
+    options, value, onSelect, label
+}: { options: string[]; value: string; onSelect: (v: string) => void; label: string }) {
+    const [open, setOpen] = useState(false);
+    return (
+        <>
+            <TouchableOpacity
+                onPress={() => setOpen(true)}
+                style={{
+                    flex: 1,
+                    flexDirection: 'row', alignItems: 'center',
+                    backgroundColor: '#fff', borderWidth: 1, borderColor: '#D1D5DB',
+                    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 9,
+                }}
+            >
+                <Text style={{ flex: 1, fontSize: 12, color: '#374151' }} numberOfLines={1}>{value}</Text>
+                <ChevronDown size={13} color="#6B7280" />
+            </TouchableOpacity>
+            <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+                <TouchableOpacity
+                    style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.38)', justifyContent: 'center' }}
+                    activeOpacity={1}
+                    onPress={() => setOpen(false)}
+                >
+                    <View style={{ marginHorizontal: 28, backgroundColor: '#fff', borderRadius: 14, overflow: 'hidden', elevation: 20 }}>
+                        <View style={{ paddingHorizontal: 16, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
+                            <Text style={{ fontSize: 14, fontWeight: '700', color: '#1F2937' }}>{label}</Text>
+                        </View>
+                        {options.map(opt => (
+                            <TouchableOpacity
+                                key={opt}
+                                onPress={() => { onSelect(opt); setOpen(false); }}
+                                style={{
+                                    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                                    paddingHorizontal: 16, paddingVertical: 13,
+                                    backgroundColor: value === opt ? '#EFF6FF' : '#fff',
+                                    borderBottomWidth: 1, borderBottomColor: '#F9FAFB',
+                                }}
+                            >
+                                <Text style={{ fontSize: 14, color: value === opt ? '#2563EB' : '#374151', fontWeight: value === opt ? '700' : '400' }}>
+                                    {opt}
+                                </Text>
+                                {value === opt && (
+                                    <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: '#2563EB', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Text style={{ color: '#fff', fontSize: 11, fontWeight: '900' }}>✓</Text>
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+        </>
+    );
+}
 
-const TRANSFER_HISTORY = [
-    { id: '1', eq: 'Mixer', from: 'Gini Viviana', to: 'Sara City', by: '-', details: '8/11/2026, 11:18:05 AM\nIP: 106.193.123.168' },
-    { id: '2', eq: 'Mixer', from: 'Sara City', to: 'Gini Viviana', by: '-', details: '8/7/2026, 11:11:16 AM\nIP: 136.23.131.125' },
-];
+// ─── Badges ───────────────────────────────────────────────────────────────────
+function ConditionBadge({ condition }: { condition: string }) {
+    const map: Record<string, { bg: string; text: string }> = {
+        GOOD: { bg: '#22C55E', text: '#fff' },
+        REPAIR: { bg: '#F97316', text: '#fff' },
+        DAMAGED: { bg: '#EF4444', text: '#fff' },
+        MAINTENANCE: { bg: '#F59E0B', text: '#fff' },
+    };
+    const key = (condition || '').toUpperCase();
+    const c = map[key] || { bg: '#9CA3AF', text: '#fff' };
+    return (
+        <View style={{ backgroundColor: c.bg, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, alignSelf: 'flex-start' }}>
+            <Text style={{ fontSize: 10, fontWeight: '700', color: c.text }}>{key || 'N/A'}</Text>
+        </View>
+    );
+}
 
-const MAINTENANCE_CARDS = [
-    { id: 'EQ013', due: '2026-07-29', days: '-27 days', status: 'OVERDUE' },
-    { id: 'EQ0033', due: '2026-08-12', days: '-13 days', status: 'OVERDUE' },
-    { id: 'EQ0018', due: '2026-08-14', days: '-11 days', status: 'OVERDUE' },
-    { id: 'EQ0026', due: '2026-08-30', days: '5 days', status: 'UPCOMING' },
-    { id: 'EQ0048', due: '2026-08-31', days: '6 days', status: 'UPCOMING' },
-    { id: 'EQ0049', due: '2026-09-02', days: '8 days', status: 'UPCOMING' },
-];
+function ProjectBadge({ project }: { project: string }) {
+    const ok = project && project !== 'null' && project !== 'Not Allocated';
+    return (
+        <View style={{
+            borderWidth: 1,
+            borderColor: ok ? '#BFDBFE' : '#D1D5DB',
+            borderRadius: 6,
+            paddingHorizontal: 7,
+            paddingVertical: 2,
+            alignSelf: 'flex-start',
+            backgroundColor: ok ? '#EFF6FF' : 'transparent',
+        }}>
+            <Text style={{ fontSize: 10, fontWeight: '600', color: ok ? '#2563EB' : '#9CA3AF' }}>
+                {ok ? project : 'Not Allocated'}
+            </Text>
+        </View>
+    );
+}
 
-const MAINTENANCE_EQUIPMENT = [
-    { id: 'EQ0049', name: 'Equipment' },
-    { id: 'EQ0045', name: 'Hydraulic Crane' },
-    { id: 'EQ0033', name: 'Grinder' },
-    { id: 'EQ0026', name: 'Hammer Gun' },
-    { id: 'EQ0018', name: 'Mixer' },
-    { id: 'EQ013', name: 'Mixer' },
-];
-
-const RENTAL_HISTORY = [
-    { id: '1', eq: 'EQ-51', start: '2026-08-24', end: '2026-08-25', cost: '₹500', client: 'Tejas', notes: 'dsfgvdfndfnsf', status: 'ACTIVE' },
-    { id: '2', eq: 'EQ-10', start: '2026-08-24', end: '2026-08-24', cost: '₹55', client: 'Sdfa', notes: '-', status: 'COMPLETED' },
-    { id: '3', eq: 'EQ-8', start: '2026-08-24', end: '2026-08-24', cost: '₹3,434', client: 'Saf', notes: '-', status: 'COMPLETED' },
-    { id: '4', eq: 'EQ-2', start: '2026-08-24', end: '2026-08-24', cost: '₹444', client: 'Sdfa', notes: '-', status: 'COMPLETED' },
-    { id: '5', eq: 'EQ-17', start: '2026-08-24', end: '2026-08-24', cost: '₹34', client: 'Sad', notes: '-', status: 'COMPLETED' },
-    { id: '6', eq: 'EQ-13', start: '2026-08-24', end: '2026-08-24', cost: '₹343', client: 'Adf', notes: '-', status: 'COMPLETED' },
-    { id: '7', eq: 'EQ-28', start: '2026-08-24', end: '2026-08-24', cost: '₹234', client: 'Aa', notes: '-', status: 'COMPLETED' },
-    { id: '8', eq: 'EQ-28', start: '2026-08-21', end: '2026-08-21', cost: '₹200', client: '100', notes: '-', status: 'COMPLETED' },
-    { id: '9', eq: 'EQ-45', start: '2026-08-20', end: '2026-08-21', cost: '₹2,000', client: 'Sumit', notes: 'pok[]p', status: 'COMPLETED' },
-    { id: '10', eq: 'EQ-19', start: '2026-08-10', end: '2026-08-21', cost: '₹500', client: 'Suma', notes: 'uoip[okl[pl;o', status: 'COMPLETED' },
-];
-
-const PURCHASE_HISTORY = [
-    { id: '1', project: 'Sara City', item: '-', type: 'NEW', name: 'Hammer Gun', date: '2026-08-25', vendor: 'tejas', inv: '20', qty: 100, price: '₹200', total: '₹20,000', warranty: '2026-08-30', notes: 'ujsyuitehjj', created: '8/25/2026, 9:31:33 AM' },
-    { id: '2', project: 'Sara City', item: '-', type: 'USED', name: 'Mixer', date: '2026-08-24', vendor: 'sumit', inv: '12', qty: 5, price: '₹500', total: '₹2,500', warranty: '2026-08-28', notes: 'ydfngndhfdfn', created: '8/24/2026, 3:04:24 PM' },
-    { id: '3', project: 'Sara City', item: '-', type: 'USED', name: 'Suction Pump', date: '2026-08-21', vendor: 'tejas', inv: 'INV0012', qty: 100, price: '₹20', total: '₹2,000', warranty: '2026-08-27', notes: 'pl[k;][', created: '8/21/2026, 9:22:03 AM' },
-    { id: '4', project: 'Sara City', item: '-', type: 'NEW', name: 'Backhoe Loader', date: '2026-08-20', vendor: 'sumit', inv: 'INV0016', qty: 1, price: '₹10', total: '₹10', warranty: '-', notes: '-', created: '8/20/2026, 7:01:25 AM' },
-    { id: '5', project: 'Sara City', item: '-', type: 'NEW', name: 'Bulldozer', date: '2026-08-19', vendor: 'sumit', inv: 'INV0015', qty: 2, price: '₹1,000', total: '₹2,000', warranty: '2026-08-20', notes: 'fghfghghgh', created: '8/19/2026, 11:04:08 AM' },
-    { id: '6', project: 'Sara City', item: '-', type: 'NEW', name: 'Mixer', date: '2026-08-11', vendor: 'sumit', inv: 'INV-2026-001', qty: 100, price: '₹100', total: '₹10,000', warranty: '2026-08-13', notes: 'uiyhghhhbhhhi', created: '8/11/2026, 3:17:05 PM' },
-    { id: '7', project: 'Sara City', item: '-', type: 'USED', name: 'Drill', date: '2026-08-11', vendor: 'sumit', inv: 'INV-009', qty: 10, price: '₹500', total: '₹5,000', warranty: '2026-08-12', notes: 'tyuiyrt', created: '8/11/2026, 3:28:04 PM' },
-    { id: '8', project: 'Sara City', item: '-', type: 'USED', name: 'Mixer', date: '2026-08-11', vendor: 'tejas', inv: 'INV-2026-03', qty: 100, price: '₹300', total: '₹30,000', warranty: '2026-08-15', notes: 'rttttttttttttt', created: '8/11/2026, 3:14:25 PM' },
-    { id: '9', project: 'Sara City', item: '-', type: 'USED', name: 'Grinder', date: '2026-08-10', vendor: 'tejas', inv: 'INV-2026-001', qty: 1, price: '₹100', total: '₹100', warranty: '2026-08-14', notes: 'dfgfdnyhdgfdfy', created: '8/10/2026, 12:24:13 PM' },
-    { id: '10', project: 'Rohan Harita', item: '-', type: 'NEW', name: 'Hammer', date: '2026-07-16', vendor: 'tejas', inv: 'null', qty: 10, price: '₹10', total: '₹100', warranty: '2026-07-21', notes: 'string', created: '7/16/2026, 6:18:47 AM' },
-];
-
-const UTILIZATION_REPORT = [
-    { id: '1', eq: 'Hammer', hrs: 0, rate: 0 },
-    { id: '2', eq: 'EQ-002', hrs: 8, rate: 3.85 },
-    { id: '3', eq: 'EQ-005', hrs: 0, rate: 0 },
-    { id: '4', eq: 'EQ-007', hrs: 0, rate: 0 },
-    { id: '5', eq: 'EQ-008', hrs: 0, rate: 0 },
-    { id: '6', eq: 'EQ-009', hrs: 0, rate: 0 },
-];
-
-const COST_REPORT = [
-    { id: '1', eq: 'EQ0045', cost: '₹3,500', rentals: 2, avg: '₹1,750', days: 3, perDay: '₹1,166.67' },
-    { id: '2', eq: 'EQ-010', cost: '₹3,434', rentals: 1, avg: '₹3,434', days: 1, perDay: '₹3,434' },
-    { id: '3', eq: 'EQ0037', cost: '₹1,200', rentals: 1, avg: '₹1,200', days: 16, perDay: '₹75' },
-    { id: '4', eq: 'EQ0028', cost: '₹1,100', rentals: 2, avg: '₹550', days: 2, perDay: '₹550' },
-];
-
-const PURCHASE_REPORT = [
-    { id: '1', eq: 'Mixer', count: 2, qty: '105', cost: '₹32,500', type: 'USED' },
-    { id: '2', eq: 'Hammer Gun', count: 1, qty: '100', cost: '₹20,000', type: 'NEW' },
-    { id: '3', eq: 'Mixer', count: 1, qty: '100', cost: '₹10,000', type: 'NEW' },
-    { id: '4', eq: 'Drill', count: 1, qty: '10', cost: '₹5,000', type: 'USED' },
-    { id: '5', eq: 'Bulldozer', count: 1, qty: '2', cost: '₹2,000', type: 'NEW' },
-    { id: '6', eq: 'Suction Pump', count: 1, qty: '100', cost: '₹2,000', type: 'USED' },
-];
-
-const AVAILABILITY_REPORT = [
-    { id: '1', eq: 'Hammer', status: 'FALSE', project: 'Sara City' },
-    { id: '2', eq: 'Drill', status: 'FALSE', project: 'Sara City' },
-    { id: '3', eq: 'Hammer Gun', status: 'FALSE', project: 'Sara City' },
-    { id: '4', eq: 'Mixer', status: 'FALSE', project: 'Sara City' },
-];
-
-
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function MachineryEquipmentScreen() {
-    const [activeTab, setActiveTab] = useState('Dashboard');
 
-    const renderPagination = (totalRecords: number, showLabel = true) => (
-        <View className="p-4 border-t border-gray-100 flex-row justify-between items-center bg-white">
-            <View className="flex-row items-center">
-                <Text className="text-xs text-gray-500 mr-2">Records per page:</Text>
-                <TouchableOpacity className="flex-row items-center px-2 py-1 border border-gray-200 rounded bg-white">
-                    <Text className="text-xs text-gray-700 mr-1">10</Text>
-                    <ChevronDown size={14} color="#6B7280" />
-                </TouchableOpacity>
+    const { activeProjectId, projects, setActiveProject } = useProjectContext();
+    const projectOptions = [
+        { id: null, name: 'All Projects' },
+        ...projects.map(p => ({ id: String(p.id), name: p.name || (p as any).project_name || 'Unnamed Project' }))
+    ];
+    const [activeTab, setActiveTab] = useState('Dashboard');
+    const [page, setPage] = useState(1);
+    const [transferEqPage, setTransferEqPage] = useState(1);
+    const [transferHistPage, setTransferHistPage] = useState(1);
+    const [usageRepPage, setUsageRepPage] = useState(1);
+    const [usageLogPage, setUsageLogPage] = useState(1);
+    const [limit, setLimit] = useState(10);
+    const [isLoading, setIsLoading] = useState(false);
+    const [selectedProject, setSelectedProject] = useState(ALL_PROJECTS[0]);
+    const [projectModalOpen, setProjectModalOpen] = useState(false);
+
+    // Equipment list filters
+    const [searchText, setSearchText] = useState('');
+    const [conditionFilter, setConditionFilter] = useState('All Conditions');
+    const [allocationFilter, setAllocationFilter] = useState('All Projects');
+    const [showArchived, setShowArchived] = useState(false);
+
+    // Data state
+    const [kpiStats, setKpiStats] = useState([
+        { label: 'Total Equipment', value: '-', sub: 'Registered Units' },
+        { label: 'Available', value: '-', sub: 'Ready for deploy' },
+        { label: 'Allocated', value: '-', sub: 'Currently in use' },
+        { label: 'Maintenance Due', value: '-', sub: 'Upcoming/Overdue' },
+        { label: 'Equipment Alerts', value: '-', sub: 'Issues detected' },
+        { label: 'Total Rental', value: '-', sub: 'Estimated cost' },
+    ]);
+    const [maintenanceAlerts, setMaintenanceAlerts] = useState<any[]>([]);
+    const [equipmentList, setEquipmentList] = useState<any[]>([]);
+    const [usageReport, setUsageReport] = useState<any[]>([]);
+    const [usageList, setUsageList] = useState<any[]>([]);
+    const [selectedUsageEqId, setSelectedUsageEqId] = useState<any>(null);
+    const [selectedTransferEqId, setSelectedTransferEqId] = useState<any>(null);
+    const [usageTotals, setUsageTotals] = useState({ hours: 0, fuel: 0, entries: 0 });
+    const [transferHistory, setTransferHistory] = useState<any[]>([]);
+    const [maintenanceList, setMaintenanceList] = useState<any[]>([]);
+    const [rentalList, setRentalList] = useState<any[]>([]);
+    const [purchaseList, setPurchaseList] = useState<any[]>([]);
+    const [utilizationReport, setUtilizationReport] = useState<any[]>([]);
+    const [costReport, setCostReport] = useState<any[]>([]);
+    const [purchaseReport, setPurchaseReport] = useState<any[]>([]);
+    const [availabilityReport, setAvailabilityReport] = useState<any[]>([]);
+
+    useEffect(() => { setPage(1); }, [activeTab, conditionFilter, allocationFilter, searchText]);
+
+    useEffect(() => {
+        const pid = selectedProject.id !== 'all' ? parseInt(selectedProject.id) : undefined;
+        const load = async () => {
+            setIsLoading(true);
+            try {
+                if (activeTab === 'Dashboard') {
+                    const [k, a] = await Promise.allSettled([
+                        equipmentService.getKpi(pid),
+                        equipmentService.getMaintenanceAlerts(pid),
+                    ]);
+                    if (k.status === 'fulfilled' && k.value) {
+                        const d = k.value?.data ?? k.value;
+                        setKpiStats([
+                            { label: 'Total Equipment', value: String(d.total_equipment ?? d.total ?? 0), sub: 'Registered Units' },
+                            { label: 'Available', value: String(d.available ?? 0), sub: 'Ready for deploy' },
+                            { label: 'Allocated', value: String(d.allocated ?? 0), sub: 'Currently in use' },
+                            { label: 'Maintenance Due', value: String(d.maintenance_due ?? d.maintenance ?? 0), sub: 'Upcoming/Overdue' },
+                            { label: 'Equipment Alerts', value: String(d.alerts ?? 0), sub: 'Issues detected' },
+                            { label: 'Total Rental', value: '\u20B9' + (d.total_rental_cost ?? d.rental_cost ?? 0).toLocaleString(), sub: 'Estimated cost' },
+                        ]);
+                    }
+                    if (a.status === 'fulfilled' && a.value) {
+                        const arr = a.value?.data ?? a.value ?? [];
+                        setMaintenanceAlerts(Array.isArray(arr) ? arr : []);
+                    }
+                } else if (activeTab === 'Machinery & Equipment List') {
+                    const r = await equipmentService.getEquipmentList(pid).catch(() => null);
+                    const arr = r?.data ?? r?.items ?? r?.equipment ?? r ?? [];
+                    setEquipmentList(Array.isArray(arr) ? arr : []);
+                } else if (activeTab === 'Usage') {
+                    const [ur, ul] = await Promise.allSettled([
+                        equipmentService.getUsageReport(pid),
+                        equipmentService.getUsageList(pid)
+                    ]);
+                    if (ur.status === 'fulfilled') {
+                        const arr = ur.value?.data ?? ur.value ?? [];
+                        const list = Array.isArray(arr) ? arr : [];
+                        setUsageReport(list);
+                        setUsageTotals({
+                            hours: list.reduce((s: number, x: any) => s + (x.total_hours ?? x.hours ?? 0), 0),
+                            fuel: list.reduce((s: number, x: any) => s + (x.total_fuel ?? x.fuel ?? 0), 0),
+                            entries: list.reduce((s: number, x: any) => s + (x.entries ?? x.log_count ?? 0), 0),
+                        });
+                    }
+                    if (ul.status === 'fulfilled') {
+                        const arr = ul.value?.data ?? ul.value ?? [];
+                        setUsageList(Array.isArray(arr) ? arr : []);
+                    }
+                } else if (activeTab === 'Transfer Equipment') {
+                    const [th, eq] = await Promise.allSettled([
+                        equipmentService.getTransferHistory(pid),
+                        equipmentService.getEquipmentList(pid)
+                    ]);
+                    if (th.status === 'fulfilled') {
+                        const arr = th.value?.data ?? th.value?.items ?? th.value ?? [];
+                        setTransferHistory(Array.isArray(arr) ? arr : []);
+                    }
+                    if (eq.status === 'fulfilled') {
+                        const arr = eq.value?.data ?? eq.value?.items ?? eq.value?.equipment ?? eq.value ?? [];
+                        setEquipmentList(Array.isArray(arr) ? arr : []);
+                    }
+                } else if (activeTab === 'Maintenance') {
+                    const r = await equipmentService.getMaintenanceList(pid).catch(() => null);
+                    const arr = r?.data ?? r ?? [];
+                    setMaintenanceList(Array.isArray(arr) ? arr : []);
+                } else if (activeTab === 'Rental') {
+                    const r = await equipmentService.getRentalList(pid).catch(() => null);
+                    const arr = r?.data ?? r ?? [];
+                    setRentalList(Array.isArray(arr) ? arr : []);
+                } else if (activeTab === 'Purchase') {
+                    const r = await equipmentService.getPurchaseList(pid).catch(() => null);
+                    const arr = r?.data ?? r ?? [];
+                    setPurchaseList(Array.isArray(arr) ? arr : []);
+                } else if (activeTab === 'Reports' || activeTab === 'Project Report') {
+                    const [u, c, p, av] = await Promise.allSettled([
+                        equipmentService.getUtilizationReport(pid),
+                        equipmentService.getCostReport(pid),
+                        equipmentService.getPurchaseReport(pid),
+                        equipmentService.getAvailabilityReport(pid),
+                    ]);
+                    if (u.status === 'fulfilled') { const a = u.value?.data ?? u.value ?? []; setUtilizationReport(Array.isArray(a) ? a : []); }
+                    if (c.status === 'fulfilled') { const a = c.value?.data ?? c.value ?? []; setCostReport(Array.isArray(a) ? a : []); }
+                    if (p.status === 'fulfilled') { const a = p.value?.data ?? p.value ?? []; setPurchaseReport(Array.isArray(a) ? a : []); }
+                    if (av.status === 'fulfilled') { const a = av.value?.data ?? av.value ?? []; setAvailabilityReport(Array.isArray(a) ? a : []); }
+                }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        load();
+    }, [activeTab, selectedProject]);
+
+    // ─── Pagination ────────────────────────────────────────────────────────────
+    const renderPagination = (total: number, currentPage = page, onPageChange: any = setPage) => {
+        const totalPages = Math.max(1, Math.ceil(total / limit));
+        const p = Math.min(currentPage, totalPages);
+        return (
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#F3F4F6', backgroundColor: '#fff' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 11, color: '#6B7280', marginRight: 6 }}>Per page:</Text>
+                    <TouchableOpacity
+                        onPress={() => { const n = limit === 10 ? 20 : limit === 20 ? 50 : 10; setLimit(n); onPageChange(1); }}
+                        style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 }}
+                    >
+                        <Text style={{ fontSize: 12, color: '#374151', marginRight: 4 }}>{limit}</Text>
+                        <ChevronDown size={11} color="#6B7280" />
+                    </TouchableOpacity>
+                </View>
+                <Text style={{ fontSize: 11, color: '#6B7280' }}>
+                    {total === 0 ? '0' : `${(p - 1) * limit + 1}-${Math.min(p * limit, total)}`} / {total}
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <TouchableOpacity
+                        disabled={p === 1}
+                        onPress={() => onPageChange((x: number) => x - 1)}
+                        style={{ width: 28, height: 28, borderRadius: 6, borderWidth: 1, borderColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center', opacity: p === 1 ? 0.4 : 1 }}
+                    >
+                        <ChevronLeft size={13} color="#6B7280" />
+                    </TouchableOpacity>
+                    {Array.from({ length: Math.min(4, totalPages) }).map((_, i) => {
+                        const n = i + 1;
+                        return (
+                            <TouchableOpacity
+                                key={n}
+                                onPress={() => onPageChange(n)}
+                                style={{ width: 28, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: p === n ? '#2563EB' : '#fff', borderWidth: p === n ? 0 : 1, borderColor: '#E5E7EB' }}
+                            >
+                                <Text style={{ fontSize: 12, color: p === n ? '#fff' : '#374151', fontWeight: p === n ? '700' : '400' }}>{n}</Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                    <TouchableOpacity
+                        disabled={p === totalPages}
+                        onPress={() => onPageChange((x: number) => x + 1)}
+                        style={{ width: 28, height: 28, borderRadius: 6, borderWidth: 1, borderColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center', opacity: p === totalPages ? 0.4 : 1 }}
+                    >
+                        <ChevronRight size={13} color="#6B7280" />
+                    </TouchableOpacity>
+                </View>
             </View>
-            <Text className="text-xs text-gray-500">Showing 1 - {Math.min(10, totalRecords)} of {totalRecords} records</Text>
-            <View className="flex-row items-center space-x-1">
-                <TouchableOpacity className="w-6 h-6 items-center justify-center rounded border border-gray-200 bg-white opacity-50">
-                    <ChevronLeft size={14} color="#9CA3AF" />
-                </TouchableOpacity>
-                <TouchableOpacity className="w-6 h-6 items-center justify-center rounded bg-blue-600">
-                    <Text className="text-xs text-white font-medium">1</Text>
-                </TouchableOpacity>
-                {totalRecords > 10 && (
-                    <>
-                        <TouchableOpacity className="w-6 h-6 items-center justify-center rounded border border-gray-200 bg-white">
-                            <Text className="text-xs text-gray-600 font-medium">2</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity className="w-6 h-6 items-center justify-center rounded border border-gray-200 bg-white">
-                            <Text className="text-xs text-gray-600 font-medium">3</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity className="w-6 h-6 items-center justify-center rounded border border-gray-200 bg-white">
-                            <Text className="text-xs text-gray-600 font-medium">4</Text>
-                        </TouchableOpacity>
-                    </>
+        );
+    };
+
+    // ─── Dashboard ─────────────────────────────────────────────────────────────
+    const renderDashboard = () => (
+        <View>
+            <Text style={{ fontSize: 10, fontWeight: '700', color: '#9CA3AF', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 12 }}>Quick Stats</Text>
+
+            {/* 2-column grid of stat cards */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 20, gap: 10 }}>
+                {kpiStats.map((s, i) => (
+                    <View
+                        key={s.label}
+                        style={{
+                            width: '47.5%',
+                            backgroundColor: '#fff',
+                            borderRadius: 12,
+                            borderWidth: 1,
+                            borderColor: '#F3F4F6',
+                            padding: 14,
+                        }}
+                    >
+                        <Text style={{ fontSize: 9, fontWeight: '700', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>{s.label}</Text>
+                        <Text style={{ fontSize: 26, fontWeight: '800', color: STAT_COLORS[i]?.color ?? '#1D4ED8', marginBottom: 4 }}>{s.value}</Text>
+                        <Text style={{ fontSize: 10, color: '#9CA3AF' }}>{s.sub}</Text>
+                    </View>
+                ))}
+            </View>
+
+            <Text style={{ fontSize: 10, fontWeight: '700', color: '#9CA3AF', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 12 }}>Alerts & Maintenance</Text>
+
+            {/* Maintenance alerts */}
+            <View style={{ backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#F3F4F6', overflow: 'hidden', marginBottom: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
+                    <Text style={{ fontSize: 15, marginRight: 8 }}>🔧</Text>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#374151', textTransform: 'uppercase', letterSpacing: 0.8 }}>Maintenance Alerts</Text>
+                </View>
+                {maintenanceAlerts.length === 0 ? (
+                    <View style={{ padding: 32, alignItems: 'center' }}>
+                        <Text style={{ color: '#9CA3AF', fontSize: 13 }}>No maintenance alerts</Text>
+                    </View>
+                ) : (
+                    <View style={{ padding: 12, gap: 8 }}>
+                        {maintenanceAlerts.map((a: any, i: number) => (
+                            <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 10, backgroundColor: '#F9FAFB', borderRadius: 8, borderWidth: 1, borderColor: '#F3F4F6' }}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#1F2937' }}>{a.equipment_name ?? a.name ?? 'Equipment'}</Text>
+                                    <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>{a.due_date ?? a.maintenance_date ?? ''}</Text>
+                                </View>
+                                <View style={{ backgroundColor: a.status === 'OVERDUE' ? '#FEF2F2' : '#FEFCE8', borderRadius: 5, paddingHorizontal: 7, paddingVertical: 2 }}>
+                                    <Text style={{ fontSize: 10, fontWeight: '700', color: a.status === 'OVERDUE' ? '#EF4444' : '#CA8A04' }}>{a.status ?? 'UPCOMING'}</Text>
+                                </View>
+                            </View>
+                        ))}
+                    </View>
                 )}
-                <TouchableOpacity className="w-6 h-6 items-center justify-center rounded border border-gray-200 bg-white">
-                    <ChevronRight size={14} color="#6B7280" />
-                </TouchableOpacity>
+            </View>
+
+            {/* Equipment alerts */}
+            <View style={{ backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#F3F4F6', overflow: 'hidden' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
+                    <Text style={{ fontSize: 15, marginRight: 8 }}>⚠️</Text>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#EF4444', textTransform: 'uppercase', letterSpacing: 0.8 }}>Equipment Alerts</Text>
+                </View>
+                <View style={{ padding: 32, alignItems: 'center' }}>
+                    <Text style={{ color: '#9CA3AF', fontSize: 13 }}>No equipment alerts</Text>
+                </View>
             </View>
         </View>
     );
 
-    const renderDashboard = () => (
-        <View>
-            <View className="mb-4">
-                <Text className="text-xs font-bold text-gray-400 tracking-widest uppercase mb-4">Quick Stats</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
-                    <View className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm w-48 mr-3">
-                        <Text className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Total Equipment</Text>
-                        <Text className="text-xl font-bold text-gray-800 mb-1">4</Text>
-                        <Text className="text-xs text-gray-400">Registered Units</Text>
-                    </View>
-                    <View className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm w-48 mr-3">
-                        <Text className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Available</Text>
-                        <Text className="text-xl font-bold text-green-500 mb-1">0</Text>
-                        <Text className="text-xs text-gray-400">Ready for deploy</Text>
-                    </View>
-                    <View className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm w-48 mr-3">
-                        <Text className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Allocated</Text>
-                        <Text className="text-xl font-bold text-blue-500 mb-1">4</Text>
-                        <Text className="text-xs text-gray-400">Currently in use</Text>
-                    </View>
-                    <View className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm w-48 mr-3">
-                        <Text className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Maintenance Due</Text>
-                        <Text className="text-xl font-bold text-orange-500 mb-1">6</Text>
-                        <Text className="text-xs text-gray-400">Upcoming/Overdue</Text>
-                    </View>
-                    <View className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm w-48 mr-3">
-                        <Text className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Equipment Alerts</Text>
-                        <Text className="text-xl font-bold text-red-500 mb-1">0</Text>
-                        <Text className="text-xs text-gray-400">Issues detected</Text>
-                    </View>
-                    <View className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm w-48">
-                        <Text className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Total Rental/Mo</Text>
-                        <Text className="text-xl font-bold text-purple-500 mb-1">₹11,644</Text>
-                        <Text className="text-xs text-gray-400">Estimated cost</Text>
-                    </View>
-                </ScrollView>
-            </View>
+    // ─── Equipment List ────────────────────────────────────────────────────────
+    const renderList = () => {
+        const q = searchText.toLowerCase();
+        const filteredEq = equipmentList.filter(row => {
+            const matchSearch = !q || (row.name ?? row.equipment_name ?? '').toLowerCase().includes(q) || (row.equipment_code ?? row.code ?? '').toLowerCase().includes(q) || (row.operator_name ?? row.operator ?? '').toLowerCase().includes(q);
+            const cond = (row.condition ?? '').toUpperCase();
+            const matchCond = conditionFilter === 'All Conditions' || cond === conditionFilter;
+            const allocated = !!(row.project_name ?? row.project);
+            const matchAlloc = allocationFilter === 'All Projects' || (allocationFilter === 'Allocated' && allocated) || (allocationFilter === 'Deallocated' && !allocated);
+            return matchSearch && matchCond && matchAlloc;
+        });
 
-            <View className="mb-4">
-                <Text className="text-xs font-bold text-gray-400 tracking-widest uppercase mb-4">Alerts & Maintenance</Text>
-                <View className="flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4">
-                    {/* Maintenance Alerts */}
-                    <View className="flex-1 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden z-10">
-                        <View className="p-4 border-b border-gray-100 flex-row items-center">
-                            <PenTool size={16} color="#F59E0B" className="mr-2" />
-                            <Text className="text-xs font-bold text-gray-800 tracking-wider uppercase">Maintenance Alerts</Text>
+        return (
+            <View style={{ backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#F3F4F6', overflow: 'hidden' }}>
+                <View style={{ padding: 14, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
+                    <Text style={{ fontSize: 10, fontWeight: '700', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 1.5 }}>Equipment Register</Text>
+                </View>
+
+                <View style={{ paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 9 }}>
+                        <Search size={15} color="#9CA3AF" />
+                        <TextInput
+                            value={searchText} onChangeText={setSearchText}
+                            placeholder="Search equipment..." placeholderTextColor="#9CA3AF"
+                            style={{ flex: 1, marginLeft: 8, fontSize: 13, color: '#374151', padding: 0 }}
+                        />
+                        {searchText.length > 0 && (
+                            <TouchableOpacity onPress={() => setSearchText('')} style={{ padding: 4 }}><X size={14} color="#9CA3AF" /></TouchableOpacity>
+                        )}
+                    </View>
+                </View>
+
+                <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingBottom: 8, gap: 8 }}>
+                    <ModalDropdown options={CONDITIONS} value={conditionFilter} onSelect={v => { setConditionFilter(v); setPage(1); }} label="Filter by Condition" />
+                    <ModalDropdown options={ALLOCATION_OPTS} value={allocationFilter} onSelect={v => { setAllocationFilter(v); setPage(1); }} label="Filter by Allocation" />
+                    <TouchableOpacity
+                        onPress={() => setShowArchived(a => !a)}
+                        style={{
+                            flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 9,
+                            borderWidth: 1, borderColor: showArchived ? '#2563EB' : '#E5E7EB', borderRadius: 8,
+                            backgroundColor: showArchived ? '#EFF6FF' : '#fff',
+                        }}
+                    >
+                        <View style={{
+                            width: 15, height: 15, borderRadius: 3, borderWidth: 1.5, borderColor: showArchived ? '#2563EB' : '#D1D5DB',
+                            backgroundColor: showArchived ? '#2563EB' : '#fff', alignItems: 'center', justifyContent: 'center', marginRight: 6,
+                        }}>
+                            {showArchived && <Text style={{ color: '#fff', fontSize: 9, fontWeight: '900' }}>✓</Text>}
                         </View>
-                        <View className="p-4 space-y-3">
-                            {MAINTENANCE_ALERTS.map(alert => (
-                                <View key={alert.id} className="flex-row items-center justify-between p-3 border border-gray-50 bg-gray-50/50 rounded-lg">
-                                    <View>
-                                        <Text className="text-sm font-bold text-gray-800">{alert.eq}</Text>
-                                        <Text className="text-xs text-gray-500 mt-1">{alert.due}</Text>
+                        <Text style={{ fontSize: 12, color: showArchived ? '#2563EB' : '#374151', fontWeight: showArchived ? '700' : '400' }}>Archived</Text>
+                    </TouchableOpacity>
+                </View>
+
+                <View style={{ flexDirection: 'row', paddingHorizontal: 12, paddingBottom: 12, gap: 8, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
+                    <TouchableOpacity
+                        onPress={() => {
+                            const pid = selectedProject.id !== 'all' ? parseInt(selectedProject.id) : undefined;
+                            setIsLoading(true);
+                            equipmentService.getEquipmentList(pid).then(r => { const a = r?.data ?? r?.items ?? r?.equipment ?? r ?? []; setEquipmentList(Array.isArray(a) ? a : []); }).catch(() => { }).finally(() => setIsLoading(false));
+                        }}
+                        style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 9, backgroundColor: '#fff' }}
+                    >
+                        <RefreshCw size={14} color="#6B7280" />
+                        <Text style={{ fontSize: 13, color: '#374151', marginLeft: 6, fontWeight: '500' }}>Refresh</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#2563EB', borderRadius: 8, paddingVertical: 9 }}>
+                        <Plus size={15} color="#fff" />
+                        <Text style={{ fontSize: 13, fontWeight: '700', color: '#fff', marginLeft: 6 }}>Add Equipment</Text>
+                    </TouchableOpacity>
+                </View>
+
+                {isLoading ? (
+                    <View style={{ padding: 48, alignItems: 'center' }}><ActivityIndicator color="#2563EB" size="large" /></View>
+                ) : filteredEq.length === 0 ? (
+                    <View style={{ padding: 48, alignItems: 'center' }}>
+                        <Text style={{ color: '#9CA3AF', fontSize: 14 }}>No equipment found</Text>
+                    </View>
+                ) : (
+                    <ScrollView horizontal showsHorizontalScrollIndicator>
+                        <View style={{ minWidth: 1000 }}>
+                            <View style={{ flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#F9FAFB', borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
+                                <Text style={{ width: 160, fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>Equipment</Text>
+                                <Text style={{ width: 130, fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>Project</Text>
+                                <Text style={{ width: 100, fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>Ownership</Text>
+                                <Text style={{ width: 120, fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>Operator</Text>
+                                <Text style={{ width: 65, fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>Usage</Text>
+                                <Text style={{ width: 95, fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>Condition</Text>
+                                <Text style={{ width: 115, fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>Maintenance</Text>
+                                <Text style={{ width: 200, fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', textAlign: 'right' }}>Actions</Text>
+                            </View>
+                            {filteredEq.slice((page - 1) * limit, page * limit).map((row: any, i: number) => (
+                                <View key={row.id ?? i} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: '#F9FAFB', backgroundColor: i % 2 === 0 ? '#fff' : '#FAFAFA' }}>
+                                    <View style={{ width: 160 }}>
+                                        <Text style={{ fontSize: 13, fontWeight: '700', color: '#1F2937' }}>{row.name ?? row.equipment_name ?? '-'}</Text>
+                                        <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 1 }}>{row.equipment_code ?? row.code ?? ''}</Text>
                                     </View>
-                                    <View className={`px-2 py-0.5 rounded ${alert.status === 'OVERDUE' ? 'bg-red-50 border border-red-200' : 'bg-yellow-50 border border-yellow-200'}`}>
-                                        <Text className={`text-[10px] font-bold ${alert.status === 'OVERDUE' ? 'text-red-500' : 'text-yellow-600'}`}>{alert.status}</Text>
+                                    <View style={{ width: 130 }}>
+                                        <ProjectBadge project={row.project_name ?? row.project?.name ?? (typeof row.project === 'string' ? row.project : '')} />
+                                    </View>
+                                    <Text style={{ width: 100, fontSize: 12, fontWeight: '600', color: '#374151' }}>{row.ownership ?? row.ownership_type ?? '-'}</Text>
+                                    <Text style={{ width: 120, fontSize: 13, color: '#374151' }}>{row.operator_name ?? row.operator ?? '-'}</Text>
+                                    <Text style={{ width: 65, fontSize: 12, color: '#6B7280', fontWeight: '600' }}>{row.total_usage_hours ?? row.usage_hours ?? row.total_hours ?? row.usage ?? '0'} hrs</Text>
+                                    <View style={{ width: 95 }}>
+                                        <ConditionBadge condition={row.condition ?? 'GOOD'} />
+                                    </View>
+                                    <Text style={{ width: 115, fontSize: 11, color: '#374151' }}>{row.next_maintenance_date ?? row.maintenance ?? '-'}</Text>
+                                    <View style={{ width: 200, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
+                                        <TouchableOpacity><Eye size={16} color="#9CA3AF" /></TouchableOpacity>
+                                        <TouchableOpacity><Edit2 size={16} color="#9CA3AF" /></TouchableOpacity>
+                                        <TouchableOpacity><Link size={16} color="#9CA3AF" /></TouchableOpacity>
+                                        <TouchableOpacity><RotateCcw size={16} color="#9CA3AF" /></TouchableOpacity>
+                                        <TouchableOpacity><Key size={16} color="#9CA3AF" /></TouchableOpacity>
+                                        <TouchableOpacity><Copy size={16} color="#9CA3AF" /></TouchableOpacity>
+                                        <TouchableOpacity><Clock size={16} color="#9CA3AF" /></TouchableOpacity>
+                                        <TouchableOpacity><Grid size={16} color="#9CA3AF" /></TouchableOpacity>
+                                        <TouchableOpacity><Trash2 size={16} color="#EF4444" /></TouchableOpacity>
                                     </View>
                                 </View>
                             ))}
                         </View>
-                    </View>
+                    </ScrollView>
+                )}
+                {renderPagination(filteredEq.length)}
+            </View>
+        );
+    };
 
-                    {/* Equipment Alerts */}
-                    <View className="flex-1 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden z-10">
-                        <View className="p-4 border-b border-gray-100 flex-row items-center">
-                            <Text className="text-xs font-bold text-red-500 tracking-wider uppercase">⚠ Equipment Alerts</Text>
-                        </View>
-                        <View className="p-4 flex-1 items-center justify-center min-h-[300px]">
-                            <Text className="text-sm text-gray-400">No equipment alerts</Text>
-                        </View>
+    // ─── Shared Wrapper for other lists ──────────────────────────────────────────
+    const SharedList = ({
+        title, data, headers, widths, getRow, searchPlaceholder, onRefresh,
+        addButtonText, onAdd, renderHeaderExtra
+    }: {
+        title: string;
+        data: any[];
+        headers: string[];
+        widths: (number | 'flex')[];
+        getRow: (r: any) => string[];
+        searchPlaceholder?: string;
+        onRefresh: () => void;
+        addButtonText?: string;
+        onAdd?: () => void;
+        renderHeaderExtra?: () => React.ReactNode;
+    }) => {
+        const q = searchText.toLowerCase();
+        const filtered = data.filter(row => {
+            if (!q) return true;
+            const json = JSON.stringify(row).toLowerCase();
+            return json.includes(q);
+        });
+
+        return (
+            <View style={{ backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#F3F4F6', overflow: 'hidden' }}>
+                <View style={{ padding: 14, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
+                    <Text style={{ fontSize: 10, fontWeight: '700', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 1.5 }}>{title}</Text>
+                </View>
+
+                {renderHeaderExtra && renderHeaderExtra()}
+
+                <View style={{ paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 9 }}>
+                        <Search size={15} color="#9CA3AF" />
+                        <TextInput
+                            value={searchText} onChangeText={setSearchText}
+                            placeholder={searchPlaceholder || "Search..."} placeholderTextColor="#9CA3AF"
+                            style={{ flex: 1, marginLeft: 8, fontSize: 13, color: '#374151', padding: 0 }}
+                        />
+                        {searchText.length > 0 && (
+                            <TouchableOpacity onPress={() => setSearchText('')} style={{ padding: 4 }}><X size={14} color="#9CA3AF" /></TouchableOpacity>
+                        )}
                     </View>
                 </View>
-            </View>
-        </View>
-    );
 
-    const renderList = () => (
-        <View className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden z-10 flex-1">
-            <View className="p-4 border-b border-gray-100 flex-row justify-between items-center">
-                <Text className="text-xs font-bold text-gray-400 tracking-widest uppercase">Equipment Register</Text>
-            </View>
-            <View className="p-4 border-b border-gray-100 flex-row justify-between items-center">
-                <View className="flex-row items-center space-x-3 flex-1">
-                    <View className="flex-row items-center bg-gray-50 px-3 py-2 rounded-lg border border-gray-200 w-64">
-                        <Search size={16} color="#9CA3AF" />
-                        <TextInput placeholder="Search by name, code or operator..." className="ml-2 flex-1 text-sm text-gray-700" />
-                    </View>
-                    <TouchableOpacity className="flex-row items-center justify-between bg-white px-3 py-2 rounded-lg border border-gray-200 w-36">
-                        <Text className="text-sm text-gray-700">All Conditions</Text>
-                        <ChevronDown size={14} color="#6B7280" />
+                <View style={{ flexDirection: 'row', paddingHorizontal: 12, paddingBottom: 12, gap: 8, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
+                    <TouchableOpacity
+                        onPress={onRefresh}
+                        style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 9, backgroundColor: '#fff' }}
+                    >
+                        <RefreshCw size={14} color="#6B7280" />
+                        <Text style={{ fontSize: 13, color: '#374151', marginLeft: 6, fontWeight: '500' }}>Refresh</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity className="flex-row items-center justify-between bg-white px-3 py-2 rounded-lg border border-gray-200 w-36">
-                        <Text className="text-sm text-gray-700">All Projects</Text>
-                        <ChevronDown size={14} color="#6B7280" />
-                    </TouchableOpacity>
-                    <View className="flex-row items-center ml-2">
-                        <View className="w-4 h-4 border border-gray-300 rounded mr-2 bg-white" />
-                        <Text className="text-sm text-gray-600">Archived</Text>
-                    </View>
-                </View>
-                <View className="flex-row items-center space-x-2">
-                    <TouchableOpacity className="flex-row items-center px-3 py-2 border border-gray-200 rounded-lg bg-gray-50">
-                        <RefreshCw size={14} color="#6B7280" className="mr-2" />
-                        <Text className="text-sm text-gray-700">Refresh</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity className="flex-row items-center px-4 py-2 bg-blue-600 rounded-lg shadow-sm">
-                        <Plus size={16} color="#ffffff" className="mr-2" />
-                        <Text className="font-bold text-xs text-white">Add Equipment</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={true}>
-                <View>
-                    <View className="flex-row items-center px-6 py-4 bg-gray-50/50 border-b border-gray-100">
-                        <Text className="w-48 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Equipment</Text>
-                        <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Project</Text>
-                        <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Ownership</Text>
-                        <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Operator</Text>
-                        <Text className="w-24 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">Usage</Text>
-                        <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">Condition</Text>
-                        <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Maintenance</Text>
-                        <Text className="w-40 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Actions</Text>
-                    </View>
-                    {EQUIPMENT_LIST.map((row, index) => (
-                        <View key={row.id} className={`flex-row items-center px-6 py-4 border-b border-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
-                            <View className="w-48">
-                                <Text className="text-sm font-semibold text-gray-800">{row.eq}</Text>
-                                <Text className="text-xs text-gray-500">{row.code}</Text>
-                            </View>
-                            <View className="w-32">
-                                <View className="px-2 py-0.5 rounded border border-blue-200 bg-blue-50 self-start">
-                                    <Text className="text-[10px] font-bold text-blue-600">{row.project}</Text>
-                                </View>
-                            </View>
-                            <View className="w-32">
-                                <Text className="text-xs font-bold text-blue-500">{row.ownership}</Text>
-                            </View>
-                            <Text className="w-32 text-sm text-gray-700">{row.operator}</Text>
-                            <Text className="w-24 text-sm text-gray-500 text-center">{row.usage}</Text>
-                            <View className="w-32 items-center">
-                                <View className={`px-2 py-0.5 rounded ${row.condition === 'GOOD' ? 'bg-green-500' : 'bg-orange-500'}`}>
-                                    <Text className="text-[10px] font-bold text-white">{row.condition}</Text>
-                                </View>
-                            </View>
-                            <Text className="w-32 text-sm text-gray-700">{row.maintenance}</Text>
-                            <View className="w-40 flex-row justify-end space-x-3">
-                                <ExternalLink size={14} color="#9CA3AF" />
-                                <Edit2 size={14} color="#9CA3AF" />
-                                <Trash2 size={14} color="#9CA3AF" />
-                            </View>
-                        </View>
-                    ))}
-                </View>
-            </ScrollView>
-            {renderPagination(4)}
-        </View>
-    );
-
-    const renderUsage = () => (
-        <View className="flex-1">
-            <View className="flex-row justify-between items-center mb-4">
-                <Text className="text-xs font-bold text-gray-800 tracking-widest uppercase">Usage Analytics</Text>
-                <TouchableOpacity className="flex-row items-center px-4 py-2 bg-green-600 rounded-lg shadow-sm">
-                    <Plus size={16} color="#ffffff" className="mr-2" />
-                    <Text className="font-bold text-xs text-white">Log Usage</Text>
-                </TouchableOpacity>
-            </View>
-
-            <View className="flex-row justify-between mb-4 space-x-4">
-                <View className="flex-1 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-                    <Text className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Total Hours Logged</Text>
-                    <Text className="text-2xl font-bold text-blue-500 mb-1">24</Text>
-                    <Text className="text-xs text-gray-400">All equipment</Text>
-                </View>
-                <View className="flex-1 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-                    <Text className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Total Fuel Consumed</Text>
-                    <Text className="text-2xl font-bold text-orange-500 mb-1">41 L</Text>
-                    <Text className="text-xs text-gray-400">All equipment</Text>
-                </View>
-                <View className="flex-1 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-                    <Text className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Usage Entries</Text>
-                    <Text className="text-2xl font-bold text-green-500 mb-1">4</Text>
-                    <Text className="text-xs text-gray-400">Total logs recorded</Text>
-                </View>
-            </View>
-
-            <View className="flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4">
-                <View className="flex-1 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden z-10">
-                    <View className="p-4 border-b border-gray-100 flex-row items-center">
-                        <Text className="text-xs font-bold text-gray-800 tracking-wider uppercase">Usage Report Summary</Text>
-                    </View>
-                    <View>
-                        <View className="flex-row items-center px-6 py-4 bg-gray-50/50 border-b border-gray-100">
-                            <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Equipment</Text>
-                            <Text className="w-24 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Total Hrs</Text>
-                            <Text className="w-24 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Total Fuel</Text>
-                            <Text className="w-24 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Avg Hrs</Text>
-                            <Text className="w-24 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Entries</Text>
-                        </View>
-                        {USAGE_SUMMARY.map((row, index) => (
-                            <View key={row.id} className={`flex-row items-center px-6 py-4 border-b border-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
-                                <Text className="w-32 text-sm font-bold text-blue-500">{row.eq}</Text>
-                                <Text className="w-24 text-sm text-gray-700">{row.hrs}</Text>
-                                <Text className="w-24 text-sm text-gray-700">{row.fuel}</Text>
-                                <Text className="w-24 text-sm text-gray-700">{row.avg}</Text>
-                                <Text className="w-24 text-sm text-gray-700">{row.entries}</Text>
-                            </View>
-                        ))}
-                    </View>
-                </View>
-
-                <View className="flex-1 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden z-10">
-                    <View className="p-4 border-b border-gray-100 flex-row items-center">
-                        <Text className="text-xs font-bold text-gray-800 tracking-wider uppercase">Logs — Mixer</Text>
-                    </View>
-                    <View className="p-4 flex-1 items-center justify-center min-h-[250px]">
-                        <Text className="text-sm text-gray-400">No logs to display</Text>
-                    </View>
-                </View>
-            </View>
-        </View>
-    );
-
-    const renderTransfer = () => (
-        <View className="flex-1">
-            <View className="flex-row justify-between items-center mb-4">
-                <Text className="text-xs font-bold text-gray-800 tracking-widest uppercase">Transfer Equipment</Text>
-                <TouchableOpacity className="flex-row items-center px-4 py-2 bg-indigo-600 rounded-lg shadow-sm">
-                    <ExternalLink size={16} color="#ffffff" className="mr-2" />
-                    <Text className="font-bold text-xs text-white">Create Transfer</Text>
-                </TouchableOpacity>
-            </View>
-
-            <View className="flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4">
-                <View className="w-64 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden z-10">
-                    <View className="p-4 border-b border-gray-100">
-                        <Text className="text-[10px] font-bold text-gray-400 tracking-wider uppercase">Select Equipment</Text>
-                    </View>
-                    <TouchableOpacity className="px-4 py-3 border-b border-gray-50">
-                        <Text className="text-sm font-semibold text-gray-800">All Equipment</Text>
-                    </TouchableOpacity>
-                    {TRANSFER_EQUIPMENT.map((eq, index) => (
-                        <TouchableOpacity key={eq.id} className={`px-4 py-3 border-b border-gray-50 ${index === 0 ? 'bg-indigo-50 border-l-4 border-indigo-500' : ''}`}>
-                            <Text className={`text-sm font-semibold ${index === 0 ? 'text-indigo-700' : 'text-gray-800'}`}>{eq.name}</Text>
-                            <Text className="text-xs text-gray-400 mt-0.5">{eq.code}</Text>
+                    {addButtonText && onAdd && (
+                        <TouchableOpacity onPress={onAdd} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#2563EB', borderRadius: 8, paddingVertical: 9 }}>
+                            <Plus size={15} color="#fff" />
+                            <Text style={{ fontSize: 13, fontWeight: '700', color: '#fff', marginLeft: 6 }}>{addButtonText}</Text>
                         </TouchableOpacity>
+                    )}
+                </View>
+
+                {isLoading ? (
+                    <View style={{ padding: 48, alignItems: 'center' }}><ActivityIndicator color="#2563EB" size="large" /></View>
+                ) : filtered.length === 0 ? (
+                    <View style={{ padding: 48, alignItems: 'center' }}>
+                        <Text style={{ color: '#9CA3AF', fontSize: 14 }}>No records found</Text>
+                    </View>
+                ) : (
+                    <ScrollView horizontal showsHorizontalScrollIndicator>
+                        <View style={{ minWidth: 700 }}>
+                            <View style={{ flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#F9FAFB', borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
+                                {headers.map((h, hi) => (
+                                    <Text key={h} style={widths[hi] === 'flex' ? { flex: 1, minWidth: 120, fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' } : { width: widths[hi] as number, fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>{h}</Text>
+                                ))}
+                            </View>
+                            {filtered.slice((page - 1) * limit, page * limit).map((row, i) => {
+                                const cells = getRow(row);
+                                return (
+                                    <View key={row.id ?? i} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: '#F9FAFB', backgroundColor: i % 2 === 0 ? '#fff' : '#FAFAFA' }}>
+                                        {cells.map((cell, ci) => (
+                                            <Text key={ci} style={widths[ci] === 'flex' ? { flex: 1, minWidth: 120, fontSize: 13, color: '#374151' } : { width: widths[ci] as number, fontSize: 13, color: '#374151' }}>{cell}</Text>
+                                        ))}
+                                    </View>
+                                );
+                            })}
+                        </View>
+                    </ScrollView>
+                )}
+                {renderPagination(filtered.length)}
+            </View>
+        );
+    };
+
+    // ─── Usage ─────────────────────────────────────────────────────────────────
+
+    const renderUsage = () => {
+        const selectedEqName = selectedUsageEqId ? (usageReport.find(r => r.equipment_id === selectedUsageEqId || r.id === selectedUsageEqId)?.equipment_name || usageReport.find(r => r.equipment_id === selectedUsageEqId || r.id === selectedUsageEqId)?.name || 'Equipment') : '';
+        const filteredLogs = selectedUsageEqId ? usageList.filter(l => l.equipment_id === selectedUsageEqId || l.equipment?.id === selectedUsageEqId || l.id === selectedUsageEqId) : [];
+
+        return (
+            <View style={{ minHeight: 600 }}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+                    {[
+                        { label: 'Total Hours Logged', value: String(usageTotals.hours), sub: 'All equipment', color: '#2563EB' },
+                        { label: 'Total Fuel Consumed', value: usageTotals.fuel + ' L', sub: 'All equipment', color: '#F97316' },
+                        { label: 'Usage Entries', value: String(usageTotals.entries), sub: 'Total logs recorded', color: '#16A34A' },
+                    ].map(s => (
+                        <View key={s.label} style={{ flex: 1, minWidth: '30%', backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, borderColor: '#F3F4F6', padding: 12 }}>
+                            <Text style={{ fontSize: 9, fontWeight: '700', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>{s.label}</Text>
+                            <Text style={{ fontSize: 24, fontWeight: '800', color: s.color, marginBottom: 2 }}>{s.value}</Text>
+                            <Text style={{ fontSize: 11, color: '#9CA3AF' }}>{s.sub}</Text>
+                        </View>
                     ))}
                 </View>
 
-                <View className="flex-1 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden z-10">
-                    <View className="p-4 border-b border-gray-100 flex-row items-center">
-                        <Text className="text-xs font-bold text-gray-800 tracking-wider uppercase">Transfer History — Mixer</Text>
-                    </View>
-                    <View>
-                        <View className="flex-row items-center px-6 py-4 bg-gray-50/50 border-b border-gray-100">
-                            <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Equipment</Text>
-                            <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider">From Project</Text>
-                            <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider">To Project</Text>
-                            <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Transferred By</Text>
-                            <Text className="flex-1 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Transferred Details</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 14 }}>
+                    <TouchableOpacity style={{ backgroundColor: '#10B981', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}>
+                        <Plus size={16} color="#fff" />
+                        <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700', marginLeft: 6 }}>Log Usage</Text>
+                    </TouchableOpacity>
+                </View>
+
+                <View style={{ flexDirection: 'column', gap: 16, flex: 1 }}>
+                    {/* Left Panel: Usage Report Summary */}
+                    <View style={{ backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#F3F4F6', overflow: 'hidden' }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
+                            <Text style={{ fontSize: 14, fontWeight: '700', color: '#1F2937' }}>Usage Summary Report</Text>
                         </View>
-                        {TRANSFER_HISTORY.map((row, index) => (
-                            <View key={row.id} className={`flex-row items-center px-6 py-4 border-b border-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
-                                <Text className="w-32 text-sm font-bold text-gray-800">{row.eq}</Text>
-                                <Text className="w-32 text-sm text-gray-600">{row.from}</Text>
-                                <Text className="w-32 text-sm font-bold text-blue-600">{row.to}</Text>
-                                <Text className="w-32 text-sm text-gray-500">{row.by}</Text>
-                                <Text className="flex-1 text-xs text-gray-500 leading-tight">{row.details}</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator><View style={{ width: 600 }}>
+                            <View style={{ flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', backgroundColor: '#F9FAFB' }}>
+                                <Text style={{ width: 200, fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>Equipment</Text>
+                                <Text style={{ width: 100, fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>Total Hrs</Text>
+                                <Text style={{ width: 100, fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>Total Fuel</Text>
+                                <Text style={{ width: 100, fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>Avg Hrs</Text>
+                                <Text style={{ width: 100, fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>Entries</Text>
                             </View>
-                        ))}
+                            <ScrollView style={{ minHeight: 400 }}>
+                                {usageReport.slice((usageRepPage - 1) * limit, usageRepPage * limit).map((row, i) => (
+                                    <TouchableOpacity key={i} onPress={() => setSelectedUsageEqId(row.equipment_id || row.id)} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F9FAFB', backgroundColor: (selectedUsageEqId === (row.equipment_id || row.id)) ? '#EFF6FF' : (i % 2 === 0 ? '#fff' : '#FAFAFA') }}>
+                                        <Text style={{ width: 200, fontSize: 12, fontWeight: '700', color: (selectedUsageEqId === (row.equipment_id || row.id)) ? '#1D4ED8' : '#374151' }}>{row.equipment_name ?? row.equipment?.name ?? row.equipmentName ?? row.name ?? row.title ?? (typeof row.eq === 'string' ? row.eq : '-')}</Text>
+                                        <Text style={{ width: 100, fontSize: 12, color: '#374151', fontWeight: '500' }}>{row.total_hours ?? row.hours ?? row.total_usage ?? 0}</Text>
+                                        <Text style={{ width: 100, fontSize: 12, color: '#374151', fontWeight: '500' }}>{row.total_fuel ?? row.fuel ?? row.fuel_consumed ?? 0}</Text>
+                                        <Text style={{ width: 100, fontSize: 12, color: '#374151' }}>{row.avg_hours ?? ((row.total_hours ?? row.hours ?? row.total_usage ?? 0) / Math.max(1, (row.entries ?? row.log_count ?? 1))).toFixed(1)}</Text>
+                                        <Text style={{ width: 100, fontSize: 12, color: '#374151' }}>{row.entries ?? row.log_count ?? row.logCount ?? row.total_entries ?? 0}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                                {usageReport.length === 0 && (
+                                    <View style={{ padding: 40, alignItems: 'center' }}>
+                                        <Text style={{ color: '#9CA3AF', fontSize: 13 }}>No usage reports found</Text>
+                                    </View>
+                                )}
+                            </ScrollView>
+                        </View></ScrollView>
+                        {renderPagination(usageReport.length, usageRepPage, setUsageRepPage)}
+                    </View>
+
+                    {/* Right Panel: Logs */}
+                    <View style={{ backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#F3F4F6', overflow: 'hidden', minHeight: 400 }}>
+                        <View style={{ padding: 14, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Text style={{ fontSize: 13, fontWeight: '700', color: '#1F2937' }}>Logs — {selectedEqName || 'Select Equipment'}</Text>
+                        </View>
+                        <ScrollView style={{ minHeight: 400, padding: 12, backgroundColor: '#F9FAFB' }}>
+                            {!selectedUsageEqId ? (
+                                <View style={{ padding: 40, alignItems: 'center' }}>
+                                    <Text style={{ color: '#9CA3AF', fontSize: 13 }}>Select equipment to view logs</Text>
+                                </View>
+                            ) : filteredLogs.length === 0 ? (
+                                <View style={{ padding: 40, alignItems: 'center' }}>
+                                    <Text style={{ color: '#9CA3AF', fontSize: 13 }}>No logs to display</Text>
+                                </View>
+                            ) : (
+                                filteredLogs.slice((usageLogPage - 1) * limit, usageLogPage * limit).map((log, i) => (
+                                    <View key={i} style={{ padding: 14, marginBottom: 12, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10, backgroundColor: '#fff' }}>
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                                            <View>
+                                                <Text style={{ fontSize: 13, fontWeight: '700', color: '#374151' }}>{log.usage_date ?? log.date ?? log.created_at ?? '-'}</Text>
+                                                <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>Logged by {log.logged_by ?? log.operator ?? 'Operator'}</Text>
+                                            </View>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                                <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
+                                                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#16A34A' }}>{log.hours_used ?? log.hours ?? log.usage_hours ?? 0} hrs</Text>
+                                                </View>
+                                                <View style={{ flexDirection: 'row', gap: 6 }}>
+                                                    <TouchableOpacity><Edit2 size={14} color="#9CA3AF" /></TouchableOpacity>
+                                                    <TouchableOpacity><Trash2 size={14} color="#EF4444" /></TouchableOpacity>
+                                                </View>
+                                            </View>
+                                        </View>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                                            <Text style={{ fontSize: 12, fontWeight: '600', color: '#F59E0B' }}>{log.fuel_consumed ?? log.fuel ?? 0} L Fuel</Text>
+                                        </View>
+                                        <Text style={{ fontSize: 12, color: '#4B5563' }}>{log.remarks ?? log.notes ?? log.description ?? 'No remarks provided.'}</Text>
+                                    </View>
+                                ))
+                            )}
+                        </ScrollView>
+                        {selectedUsageEqId && renderPagination(filteredLogs.length, usageLogPage, setUsageLogPage)}
                     </View>
                 </View>
             </View>
-        </View>
-    );
+        );
+    };
+
+    const renderTransfer = () => {
+        const filteredHistory = selectedTransferEqId === 'all' || !selectedTransferEqId
+            ? transferHistory
+            : transferHistory.filter(t => t.equipment_id === selectedTransferEqId || t.eq_id === selectedTransferEqId);
+
+        return (
+            <View style={{ flexDirection: 'column', gap: 16, minHeight: 600 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: -4 }}>
+                    <TouchableOpacity style={{ backgroundColor: '#2563EB', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}>
+                        <Plus size={16} color="#fff" />
+                        <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700', marginLeft: 6 }}>Transfer Equipment</Text>
+                    </TouchableOpacity>
+                </View>
+                {/* Left Sidebar */}
+                <View style={{ backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden', maxHeight: 300 }}>
+                    <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: '#E5E7EB', backgroundColor: '#FAFAFA' }}>
+                        <Text style={{ fontSize: 11, fontWeight: '800', color: '#6B7280', textTransform: 'uppercase', letterSpacing: 1 }}>Select Equipment</Text>
+                    </View>
+                    <ScrollView style={{ minHeight: 150 }}>
+                        <TouchableOpacity onPress={() => setSelectedTransferEqId('all')} style={{ paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', backgroundColor: (!selectedTransferEqId || selectedTransferEqId === 'all') ? '#EFF6FF' : '#fff' }}>
+                            <Text style={{ fontSize: 14, fontWeight: '700', color: (!selectedTransferEqId || selectedTransferEqId === 'all') ? '#1D4ED8' : '#374151' }}>All Equipment</Text>
+                        </TouchableOpacity>
+                        {equipmentList.slice((transferEqPage - 1) * limit, transferEqPage * limit).map((eq, i) => (
+                            <TouchableOpacity key={i} onPress={() => setSelectedTransferEqId(eq.id)} style={{ paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', backgroundColor: selectedTransferEqId === eq.id ? '#EFF6FF' : '#fff' }}>
+                                <Text style={{ fontSize: 14, fontWeight: '700', color: selectedTransferEqId === eq.id ? '#1D4ED8' : '#374151' }}>{eq.name ?? eq.equipment_name ?? '-'}</Text>
+                                <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 4 }}>{eq.code ?? eq.equipment_code ?? ''}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 12, borderTopWidth: 1, borderTopColor: '#E5E7EB', backgroundColor: '#fff' }}>
+                        <TouchableOpacity disabled={transferEqPage === 1} onPress={() => setTransferEqPage(p => p - 1)}><Text style={{ color: transferEqPage === 1 ? '#D1D5DB' : '#2563EB', fontSize: 13, fontWeight: '600' }}>Prev</Text></TouchableOpacity>
+                        <Text style={{ fontSize: 12, color: '#6B7280' }}>Page {transferEqPage}</Text>
+                        <TouchableOpacity disabled={transferEqPage * limit >= equipmentList.length} onPress={() => setTransferEqPage(p => p + 1)}><Text style={{ color: transferEqPage * limit >= equipmentList.length ? '#D1D5DB' : '#2563EB', fontSize: 13, fontWeight: '600' }}>Next</Text></TouchableOpacity>
+                    </View>
+                </View>
+
+                {/* Right Panel */}
+                <View style={{ backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden' }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}>
+                        <View>
+                            <Text style={{ fontSize: 16, fontWeight: '800', color: '#111827' }}>Transfer History</Text>
+                            <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>{filteredHistory.length} records found</Text>
+                        </View>
+                    </View>
+                    <ScrollView horizontal showsHorizontalScrollIndicator><View style={{ width: 800 }}>
+                        <View style={{ flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#F9FAFB', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}>
+                            <Text style={{ width: 180, fontSize: 11, fontWeight: '800', color: '#6B7280', textTransform: 'uppercase' }}>Equipment</Text>
+                            <Text style={{ width: 160, fontSize: 11, fontWeight: '800', color: '#6B7280', textTransform: 'uppercase' }}>From Project</Text>
+                            <Text style={{ width: 160, fontSize: 11, fontWeight: '800', color: '#6B7280', textTransform: 'uppercase' }}>To Project</Text>
+                            <Text style={{ width: 140, fontSize: 11, fontWeight: '800', color: '#6B7280', textTransform: 'uppercase' }}>Transferred By</Text>
+                            <Text style={{ width: 160, fontSize: 11, fontWeight: '800', color: '#6B7280', textTransform: 'uppercase' }}>Details</Text>
+                        </View>
+                        <ScrollView style={{ minHeight: 400 }}>
+                            {filteredHistory.length === 0 ? (
+                                <View style={{ padding: 60, alignItems: 'center' }}>
+                                    <Text style={{ color: '#9CA3AF', fontSize: 14 }}>No transfer history found for this selection.</Text>
+                                </View>
+                            ) : (
+                                filteredHistory.slice((transferHistPage - 1) * limit, transferHistPage * limit).map((row, i) => (
+                                    <View key={i} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', backgroundColor: i % 2 === 0 ? '#fff' : '#FAFAFA' }}>
+                                        <View style={{ width: 180 }}>
+                                            <Text style={{ fontSize: 13, fontWeight: '700', color: '#1F2937' }}>{row.equipment_name ?? row.equipment?.name ?? (typeof row.eq === 'string' ? row.eq : '-')}</Text>
+                                        </View>
+                                        <View style={{ width: 160 }}>
+                                            <Text style={{ fontSize: 13, color: '#4B5563', fontWeight: '500' }}>{row.from_project_name ?? row.from_project?.name ?? (typeof row.from_project === 'string' ? row.from_project : (typeof row.from === 'string' ? row.from : '-'))}</Text>
+                                        </View>
+                                        <View style={{ width: 160 }}>
+                                            <Text style={{ fontSize: 13, fontWeight: '700', color: '#2563EB' }}>{row.to_project_name ?? row.to_project?.name ?? (typeof row.to_project === 'string' ? row.to_project : (typeof row.to === 'string' ? row.to : '-'))}</Text>
+                                        </View>
+                                        <View style={{ width: 140 }}>
+                                            <Text style={{ fontSize: 13, color: '#374151' }}>{row.transferred_by ?? row.by ?? row.user ?? '-'}</Text>
+                                        </View>
+                                        <View style={{ width: 160 }}>
+                                            <Text style={{ fontSize: 13, color: '#374151', fontWeight: '600' }}>{row.transfer_date ?? row.transferred_at ?? row.created_at ?? row.date ?? '-'}</Text>
+                                            <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>IP: {row.ip ?? row.ip_address ?? '192.168.1.1'}</Text>
+                                        </View>
+                                    </View>
+                                ))
+                            )}
+                        </ScrollView>
+                    </View></ScrollView>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 16, borderTopWidth: 1, borderTopColor: '#E5E7EB', backgroundColor: '#fff' }}>
+                        <TouchableOpacity disabled={transferHistPage === 1} onPress={() => setTransferHistPage(p => p - 1)}><Text style={{ color: transferHistPage === 1 ? '#D1D5DB' : '#2563EB', fontSize: 13, fontWeight: '600' }}>Prev</Text></TouchableOpacity>
+                        <Text style={{ fontSize: 12, color: '#6B7280' }}>Page {transferHistPage}</Text>
+                        <TouchableOpacity disabled={transferHistPage * limit >= filteredHistory.length} onPress={() => setTransferHistPage(p => p + 1)}><Text style={{ color: transferHistPage * limit >= filteredHistory.length ? '#D1D5DB' : '#2563EB', fontSize: 13, fontWeight: '600' }}>Next</Text></TouchableOpacity>
+                    </View>
+                </View>
+            </View>
+        );
+    };
 
     const renderMaintenance = () => (
-        <View className="flex-1">
-            <View className="flex-row justify-between items-center mb-4">
-                <Text className="text-xs font-bold text-gray-800 tracking-widest uppercase">Maintenance & Servicing</Text>
-                <TouchableOpacity className="flex-row items-center px-4 py-2 bg-orange-500 rounded-lg shadow-sm">
-                    <Plus size={16} color="#ffffff" className="mr-2" />
-                    <Text className="font-bold text-xs text-white">Schedule Maintenance</Text>
-                </TouchableOpacity>
-            </View>
-
-            <View className="mb-4">
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row pb-2">
-                    {MAINTENANCE_CARDS.map(card => (
-                        <View key={card.id} className={`p-3 rounded-lg border w-40 mr-3 ${card.status === 'OVERDUE' ? 'bg-red-50 border-red-200' : 'bg-yellow-50 border-yellow-200'}`}>
-                            <View className="flex-row justify-between items-start mb-2">
-                                <Text className="text-sm font-bold text-gray-800">{card.id}</Text>
-                                <Key size={14} color={card.status === 'OVERDUE' ? '#EF4444' : '#F59E0B'} />
-                            </View>
-                            <Text className="text-xs text-gray-600">Due: {card.due} [{card.days}]</Text>
-                            <View className={`mt-2 px-2 py-0.5 rounded self-start ${card.status === 'OVERDUE' ? 'bg-red-100' : 'bg-yellow-100'}`}>
-                                <Text className={`text-[10px] font-bold ${card.status === 'OVERDUE' ? 'text-red-600' : 'text-yellow-600'}`}>{card.status}</Text>
-                            </View>
-                        </View>
-                    ))}
-                </ScrollView>
-            </View>
-
-            <View className="flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4">
-                <View className="w-64 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden z-10">
-                    <View className="p-4 border-b border-gray-100">
-                        <Text className="text-[10px] font-bold text-gray-400 tracking-wider uppercase">Select Equipment</Text>
-                    </View>
-                    {MAINTENANCE_EQUIPMENT.map((eq, index) => (
-                        <TouchableOpacity key={eq.id} className="px-4 py-3 border-b border-gray-50">
-                            <Text className="text-sm font-semibold text-gray-800">{eq.id}</Text>
-                            <Text className="text-xs text-gray-400 mt-0.5">{eq.name}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-
-                <View className="flex-1 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden z-10">
-                    <View className="p-4 border-b border-gray-100 flex-row items-center">
-                        <Text className="text-xs font-bold text-gray-800 tracking-wider uppercase">Maintenance Logs — Mixer</Text>
-                    </View>
-                    <View>
-                        <View className="flex-row items-center px-6 py-4 bg-gray-50/50 border-b border-gray-100">
-                            <Text className="w-24 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Project</Text>
-                            <Text className="w-24 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Eq Item</Text>
-                            <Text className="w-24 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Equipment</Text>
-                            <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Maintenance Date</Text>
-                            <Text className="w-24 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Cost</Text>
-                            <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Next Maintenance Date</Text>
-                            <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Created / Completed</Text>
-                            <Text className="w-24 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Status</Text>
-                            <Text className="w-24 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Actions</Text>
-                        </View>
-                        <View className="p-8 flex-1 items-center justify-center min-h-[200px]">
-                            <Text className="text-sm text-gray-400">No maintenance records found</Text>
-                        </View>
-                    </View>
-                </View>
-            </View>
-        </View>
+        <SharedList
+            title="Maintenance Records"
+            data={maintenanceList}
+            headers={['Equipment', 'Code', 'Due Date', 'Status']}
+            widths={['flex', 120, 130, 120]}
+            getRow={r => [r.equipment_name ?? r.name ?? '-', r.equipment_code ?? '-', r.due_date ?? r.maintenance_date ?? '-', r.status ?? 'UPCOMING']}
+            searchPlaceholder="Search maintenance..."
+            onRefresh={() => {
+                const pid = selectedProject.id !== 'all' ? parseInt(selectedProject.id) : undefined;
+                setIsLoading(true);
+                equipmentService.getMaintenanceList(pid).then(r => setMaintenanceList(Array.isArray(r?.data ?? r) ? (r?.data ?? r) : [])).finally(() => setIsLoading(false));
+            }}
+            addButtonText="Schedule Maintenance"
+            onAdd={() => { }}
+        />
     );
 
     const renderRental = () => (
-        <View className="flex-1">
-            <View className="flex-row justify-between items-center mb-4">
-                <Text className="text-xs font-bold text-gray-800 tracking-widest uppercase">Rental & Cost Tracking</Text>
-                <TouchableOpacity className="flex-row items-center px-4 py-2 bg-purple-500 rounded-lg shadow-sm">
-                    <Plus size={16} color="#ffffff" className="mr-2" />
-                    <Text className="font-bold text-xs text-white">Add Rental</Text>
-                </TouchableOpacity>
-            </View>
-
-            <View className="flex-row justify-between mb-4 space-x-4">
-                <View className="flex-1 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-                    <Text className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Total Rental Cost</Text>
-                    <Text className="text-2xl font-bold text-purple-600 mb-1">₹11,644</Text>
-                    <Text className="text-xs text-gray-400">All time</Text>
-                </View>
-                <View className="flex-1 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-                    <Text className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Rental Count</Text>
-                    <Text className="text-2xl font-bold text-blue-500 mb-1">15</Text>
-                    <Text className="text-xs text-gray-400">Contracts executed</Text>
-                </View>
-                <View className="flex-1 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-                    <Text className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Total Days</Text>
-                    <Text className="text-2xl font-bold text-green-500 mb-1">36</Text>
-                    <Text className="text-xs text-gray-400">Days rented out</Text>
-                </View>
-                <View className="flex-1 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-                    <Text className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Avg /Day</Text>
-                    <Text className="text-2xl font-bold text-orange-500 mb-1">₹323</Text>
-                    <Text className="text-xs text-gray-400">Across fleet</Text>
-                </View>
-            </View>
-
-            <View className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden z-10 flex-1">
-                <View className="p-4 border-b border-gray-100 flex-row justify-between items-center">
-                    <Text className="text-xs font-bold text-gray-800 tracking-wider uppercase">All Rental History</Text>
-                    <View className="flex-row items-center space-x-2">
-                        <Text className="text-[10px] font-bold text-gray-400 uppercase">Select Equipment</Text>
-                        <TouchableOpacity className="flex-row items-center justify-between bg-white px-3 py-1.5 rounded border border-gray-200 w-40">
-                            <Text className="text-xs text-gray-700">All Equipment</Text>
-                            <ChevronDown size={14} color="#6B7280" />
-                        </TouchableOpacity>
-                    </View>
-                </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={true}>
-                    <View>
-                        <View className="flex-row items-center px-6 py-4 bg-gray-50/50 border-b border-gray-100">
-                            <Text className="w-24 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Equipment</Text>
-                            <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Start Date</Text>
-                            <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider">End Date</Text>
-                            <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Rental Cost</Text>
-                            <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Client Name</Text>
-                            <Text className="w-48 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Notes</Text>
-                            <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Status</Text>
-                            <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Actions</Text>
-                        </View>
-                        {RENTAL_HISTORY.map((row, index) => (
-                            <View key={row.id} className={`flex-row items-center px-6 py-4 border-b border-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
-                                <Text className="w-24 text-sm font-semibold text-gray-800">{row.eq}</Text>
-                                <Text className="w-32 text-sm text-gray-600">{row.start}</Text>
-                                <Text className="w-32 text-sm text-gray-600">{row.end}</Text>
-                                <Text className="w-32 text-sm font-bold text-purple-600">{row.cost}</Text>
-                                <Text className="w-32 text-sm text-gray-800">{row.client}</Text>
-                                <Text className="w-48 text-sm text-gray-500">{row.notes}</Text>
-                                <View className="w-32">
-                                    <View className={`px-2 py-0.5 rounded border self-start ${row.status === 'ACTIVE' ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
-                                        <Text className={`text-[10px] font-bold ${row.status === 'ACTIVE' ? 'text-green-600' : 'text-gray-500'}`}>{row.status}</Text>
-                                    </View>
-                                </View>
-                                <View className="w-32 flex-row justify-end space-x-3">
-                                    <ExternalLink size={14} color="#9CA3AF" />
-                                    <Edit2 size={14} color="#9CA3AF" />
-                                    <Trash2 size={14} color="#9CA3AF" />
-                                </View>
-                            </View>
-                        ))}
-                    </View>
-                </ScrollView>
-                {renderPagination(15)}
-            </View>
-        </View>
+        <SharedList
+            title="Rental History"
+            data={rentalList}
+            headers={['Equipment', 'Start', 'End', 'Cost', 'Client', 'Status']}
+            widths={['flex', 110, 110, 100, 120, 100]}
+            getRow={r => [r.equipment_name ?? r.eq ?? '-', r.start_date ?? '-', r.end_date ?? '-', r.cost ?? '-', r.client ?? '-', r.status ?? '-']}
+            searchPlaceholder="Search rentals..."
+            onRefresh={() => {
+                const pid = selectedProject.id !== 'all' ? parseInt(selectedProject.id) : undefined;
+                setIsLoading(true);
+                equipmentService.getRentalList(pid).then(r => setRentalList(Array.isArray(r?.data ?? r) ? (r?.data ?? r) : [])).finally(() => setIsLoading(false));
+            }}
+            addButtonText="Add Rental"
+            onAdd={() => { }}
+        />
     );
 
     const renderPurchase = () => (
-        <View className="flex-1">
-            <View className="flex-row justify-between items-center mb-4">
-                <Text className="text-xs font-bold text-gray-800 tracking-widest uppercase">Equipment Purchase Tracker</Text>
-                <TouchableOpacity className="flex-row items-center px-4 py-2 bg-green-500 rounded-lg shadow-sm">
-                    <Plus size={16} color="#ffffff" className="mr-2" />
-                    <Text className="font-bold text-xs text-white">Create Purchase</Text>
-                </TouchableOpacity>
-            </View>
-
-            <View className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden z-10 flex-1">
-                <View className="p-4 border-b border-gray-100 flex-row justify-between items-center">
-                    <Text className="text-xs font-bold text-gray-800 tracking-wider uppercase">Purchase History</Text>
-                    <View className="flex-row items-center space-x-2">
-                        <TouchableOpacity className="flex-row items-center justify-between bg-white px-3 py-1.5 rounded border border-gray-200 w-32">
-                            <Text className="text-xs text-gray-700">All Types</Text>
-                            <ChevronDown size={14} color="#6B7280" />
-                        </TouchableOpacity>
-                        <TouchableOpacity className="flex-row items-center justify-between bg-white px-3 py-1.5 rounded border border-gray-200 w-32">
-                            <Text className="text-xs text-gray-500">dd-mm-yyyy</Text>
-                            <ChevronDown size={14} color="#6B7280" />
-                        </TouchableOpacity>
-                        <Text className="text-xs text-gray-400">to</Text>
-                        <TouchableOpacity className="flex-row items-center justify-between bg-white px-3 py-1.5 rounded border border-gray-200 w-32">
-                            <Text className="text-xs text-gray-500">dd-mm-yyyy</Text>
-                            <ChevronDown size={14} color="#6B7280" />
-                        </TouchableOpacity>
-                        <TouchableOpacity className="px-4 py-1.5 bg-blue-600 rounded">
-                            <Text className="text-xs font-bold text-white">Apply</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={true}>
-                    <View>
-                        <View className="flex-row items-center px-6 py-4 bg-gray-50/50 border-b border-gray-100">
-                            <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Project</Text>
-                            <Text className="w-24 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Eq Item</Text>
-                            <Text className="w-24 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Type</Text>
-                            <Text className="w-40 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Asset Name</Text>
-                            <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Purchase Date</Text>
-                            <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Vendor</Text>
-                            <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Invoice Number</Text>
-                            <Text className="w-24 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">Quantity</Text>
-                            <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Unit Price</Text>
-                            <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Total Amount</Text>
-                            <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">Warranty End Date</Text>
-                            <Text className="w-40 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Notes</Text>
-                            <Text className="w-40 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Created At</Text>
-                            <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Action</Text>
-                        </View>
-                        {PURCHASE_HISTORY.map((row, index) => (
-                            <View key={row.id} className={`flex-row items-center px-6 py-4 border-b border-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
-                                <Text className="w-32 text-sm text-gray-600">{row.project}</Text>
-                                <Text className="w-24 text-sm text-gray-500">{row.item}</Text>
-                                <Text className="w-24 text-[10px] font-bold text-gray-800">{row.type}</Text>
-                                <Text className="w-40 text-sm font-semibold text-gray-800">{row.name}</Text>
-                                <Text className="w-32 text-sm text-gray-600">{row.date}</Text>
-                                <Text className="w-32 text-sm text-gray-600">{row.vendor}</Text>
-                                <Text className="w-32 text-sm text-gray-600">{row.inv}</Text>
-                                <Text className="w-24 text-sm font-medium text-orange-500 text-center">{row.qty}</Text>
-                                <Text className="w-32 text-sm font-medium text-gray-800 text-right">{row.price}</Text>
-                                <Text className="w-32 text-sm font-bold text-gray-800 text-right">{row.total}</Text>
-                                <Text className="w-32 text-sm text-gray-500 text-center">{row.warranty}</Text>
-                                <Text className="w-40 text-xs text-gray-500">{row.notes}</Text>
-                                <Text className="w-40 text-xs text-gray-500">{row.created}</Text>
-                                <View className="w-32 flex-row justify-end space-x-3">
-                                    <ExternalLink size={14} color="#9CA3AF" />
-                                    <Edit2 size={14} color="#9CA3AF" />
-                                    <Trash2 size={14} color="#9CA3AF" />
-                                </View>
-                            </View>
-                        ))}
-                    </View>
-                </ScrollView>
-                {renderPagination(10)}
-            </View>
-        </View>
+        <SharedList
+            title="Purchase History"
+            data={purchaseList}
+            headers={['Equipment', 'Date', 'Vendor', 'Qty', 'Total', 'Type']}
+            widths={['flex', 110, 120, 70, 110, 90]}
+            getRow={r => [r.equipment_name ?? r.name ?? '-', r.purchase_date ?? '-', r.vendor ?? '-', String(r.quantity ?? r.qty ?? '-'), r.total_cost ?? r.total ?? '-', r.purchase_type ?? r.type ?? '-']}
+            searchPlaceholder="Search purchases..."
+            onRefresh={() => {
+                const pid = selectedProject.id !== 'all' ? parseInt(selectedProject.id) : undefined;
+                setIsLoading(true);
+                equipmentService.getPurchaseList(pid).then(r => setPurchaseList(Array.isArray(r?.data ?? r) ? (r?.data ?? r) : [])).finally(() => setIsLoading(false));
+            }}
+            addButtonText="Create Purchase"
+            onAdd={() => { }}
+        />
     );
 
     const renderReports = () => (
-        <View className="flex-1">
-            <View className="flex-row justify-between items-center mb-4">
-                <Text className="text-xs font-bold text-gray-800 tracking-widest uppercase">Intelligence & Export</Text>
-                <View className="flex-row space-x-3">
-                    <TouchableOpacity className="flex-row items-center px-4 py-2 border border-red-200 bg-white rounded-lg shadow-sm">
-                        <FileText size={16} color="#EF4444" className="mr-2" />
-                        <Text className="font-bold text-xs text-gray-700">Export PDF</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity className="flex-row items-center px-4 py-2 border border-green-200 bg-white rounded-lg shadow-sm">
-                        <FileSpreadsheet size={16} color="#10B981" className="mr-2" />
-                        <Text className="font-bold text-xs text-gray-700">Export Excel</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
-
-            <View className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden z-10 mb-6">
-                <View className="p-4 border-b border-gray-100">
-                    <Text className="text-xs font-bold text-gray-800 tracking-wider uppercase">Utilization Report</Text>
-                </View>
-                <View className="flex-row items-center px-6 py-4 bg-gray-50/50 border-b border-gray-100">
-                    <Text className="w-64 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Equipment</Text>
-                    <Text className="w-48 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">Total Hrs</Text>
-                    <Text className="flex-1 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Utilization Rate</Text>
-                </View>
-                {UTILIZATION_REPORT.map((row, index) => (
-                    <View key={row.id} className={`flex-row items-center px-6 py-4 border-b border-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
-                        <Text className="w-64 text-sm font-semibold text-gray-800">{row.eq}</Text>
-                        <Text className="w-48 text-sm text-gray-600 text-center">{row.hrs} hrs</Text>
-                        <View className="flex-1 flex-row items-center space-x-3">
-                            <View className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden max-w-[200px]">
-                                <View className="h-full bg-orange-400 rounded-full" style={{ width: `${row.rate}%` }} />
-                            </View>
-                            <Text className="text-xs text-gray-500">{row.rate}%</Text>
-                        </View>
-                    </View>
-                ))}
-                {renderPagination(36, false)}
-            </View>
-
-            <View className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden z-10">
-                <View className="p-4 border-b border-gray-100 flex-row justify-between items-center">
-                    <Text className="text-xs font-bold text-gray-800 tracking-wider uppercase">Cost Report</Text>
-                    <View className="flex-row items-center space-x-2">
-                        <TouchableOpacity className="flex-row items-center justify-between bg-white px-3 py-1.5 rounded border border-gray-200 w-32">
-                            <Text className="text-xs text-gray-500">dd-mm-yyyy</Text>
-                            <ChevronDown size={14} color="#6B7280" />
-                        </TouchableOpacity>
-                        <Text className="text-xs text-gray-400">to</Text>
-                        <TouchableOpacity className="flex-row items-center justify-between bg-white px-3 py-1.5 rounded border border-gray-200 w-32">
-                            <Text className="text-xs text-gray-500">dd-mm-yyyy</Text>
-                            <ChevronDown size={14} color="#6B7280" />
-                        </TouchableOpacity>
-                        <TouchableOpacity className="px-4 py-1.5 bg-blue-600 rounded">
-                            <Text className="text-xs font-bold text-white">Apply</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-                <View className="flex-row items-center px-6 py-4 bg-gray-50/50 border-b border-gray-100">
-                    <Text className="flex-1 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Equipment</Text>
-                    <Text className="w-40 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Total Cost</Text>
-                    <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">Rentals</Text>
-                    <Text className="w-40 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Avg Cost</Text>
-                    <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">Total Days</Text>
-                    <Text className="w-40 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Rent/Day</Text>
-                </View>
-                {COST_REPORT.map((row, index) => (
-                    <View key={row.id} className={`flex-row items-center px-6 py-4 border-b border-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
-                        <Text className="flex-1 text-sm font-semibold text-gray-800">{row.eq}</Text>
-                        <Text className="w-40 text-sm font-bold text-green-600 text-right">{row.cost}</Text>
-                        <Text className="w-32 text-sm text-gray-600 text-center">{row.rentals}</Text>
-                        <Text className="w-40 text-sm font-medium text-gray-600 text-right">{row.avg}</Text>
-                        <Text className="w-32 text-sm text-gray-600 text-center">{row.days}</Text>
-                        <Text className="w-40 text-sm font-medium text-gray-600 text-right">{row.perDay}</Text>
-                    </View>
-                ))}
-            </View>
+        <View style={{ gap: 14 }}>
+            <SharedList
+                title="Utilization Report"
+                data={utilizationReport}
+                headers={['Equipment', 'Hours Used', 'Utilization %']}
+                widths={['flex', 110, 120]}
+                getRow={r => [r.equipment_name ?? r.eq ?? '-', String(r.hours_used ?? r.hrs ?? 0), String(r.utilization_rate ?? r.rate ?? 0) + '%']}
+                searchPlaceholder="Search utilization..."
+                onRefresh={() => {
+                    const pid = selectedProject.id !== 'all' ? parseInt(selectedProject.id) : undefined;
+                    setIsLoading(true);
+                    equipmentService.getUtilizationReport(pid).then(r => setUtilizationReport(Array.isArray(r?.data ?? r) ? (r?.data ?? r) : [])).finally(() => setIsLoading(false));
+                }}
+            />
+            <SharedList
+                title="Cost Report"
+                data={costReport}
+                headers={['Equipment', 'Total Cost', 'Avg Cost', 'Total Days']}
+                widths={['flex', 120, 110, 110]}
+                getRow={r => [r.equipment_name ?? r.eq ?? '-', r.total_cost ?? r.cost ?? '-', r.avg_cost ?? '-', String(r.total_days ?? r.days ?? 0)]}
+                searchPlaceholder="Search cost records..."
+                onRefresh={() => {
+                    const pid = selectedProject.id !== 'all' ? parseInt(selectedProject.id) : undefined;
+                    setIsLoading(true);
+                    equipmentService.getCostReport(pid).then(r => setCostReport(Array.isArray(r?.data ?? r) ? (r?.data ?? r) : [])).finally(() => setIsLoading(false));
+                }}
+            />
         </View>
     );
 
     const renderProjectReport = () => (
-        <View className="flex-1">
-            <View className="mb-4">
-                <Text className="text-xs font-bold text-gray-800 tracking-widest uppercase">Project Specific Reports</Text>
-            </View>
-
-            <View className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden z-10 mb-6">
-                <View className="p-4 border-b border-gray-100 flex-row justify-between items-center">
-                    <Text className="text-xs font-bold text-gray-800 tracking-wider uppercase">Purchase Report</Text>
-                    <View className="flex-row items-center space-x-2">
-                        <TouchableOpacity className="flex-row items-center justify-between bg-white px-3 py-1.5 rounded border border-gray-200 w-32">
-                            <Text className="text-xs text-gray-700">All Types</Text>
-                            <ChevronDown size={14} color="#6B7280" />
-                        </TouchableOpacity>
-                        <TouchableOpacity className="px-4 py-1.5 bg-blue-600 rounded">
-                            <Text className="text-xs font-bold text-white">Apply</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-                <View className="flex-row items-center px-6 py-4 bg-gray-50/50 border-b border-gray-100">
-                    <Text className="flex-1 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Equipment</Text>
-                    <Text className="w-48 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">Purchase Count</Text>
-                    <Text className="w-40 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">Quantity</Text>
-                    <Text className="w-48 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Cost</Text>
-                    <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">Type</Text>
-                </View>
-                {PURCHASE_REPORT.map((row, index) => (
-                    <View key={row.id} className={`flex-row items-center px-6 py-4 border-b border-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
-                        <Text className="flex-1 text-sm font-semibold text-gray-800">{row.eq}</Text>
-                        <Text className="w-48 text-sm text-gray-600 text-center">{row.count}</Text>
-                        <Text className="w-40 text-sm font-bold text-red-500 text-center">{row.qty}</Text>
-                        <Text className="w-48 text-sm font-medium text-gray-800 text-right">{row.cost}</Text>
-                        <Text className="w-32 text-[10px] font-bold text-gray-800 text-center">{row.type}</Text>
-                    </View>
-                ))}
-                {renderPagination(8)}
-            </View>
-
-            <View className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden z-10">
-                <View className="p-4 border-b border-gray-100 flex-row justify-between items-center">
-                    <Text className="text-xs font-bold text-gray-800 tracking-wider uppercase">Availability Report</Text>
-                    <View className="flex-row items-center space-x-2">
-                        <TouchableOpacity className="flex-row items-center justify-between bg-white px-3 py-1.5 rounded border border-gray-200 w-32">
-                            <Text className="text-xs text-gray-700">All</Text>
-                            <ChevronDown size={14} color="#6B7280" />
-                        </TouchableOpacity>
-                        <TouchableOpacity className="px-4 py-1.5 bg-blue-600 rounded">
-                            <Text className="text-xs font-bold text-white">Apply</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-                <View className="flex-row items-center px-6 py-4 bg-gray-50/50 border-b border-gray-100">
-                    <Text className="flex-1 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Equipment</Text>
-                    <Text className="w-48 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">Status</Text>
-                    <Text className="flex-1 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Project ID</Text>
-                </View>
-                {AVAILABILITY_REPORT.map((row, index) => (
-                    <View key={row.id} className={`flex-row items-center px-6 py-4 border-b border-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
-                        <Text className="flex-1 text-sm font-semibold text-gray-800">{row.eq}</Text>
-                        <View className="w-48 items-center">
-                            <View className="px-2 py-0.5 rounded border border-red-200 bg-red-50">
-                                <Text className="text-[10px] font-bold text-red-500">{row.status}</Text>
-                            </View>
-                        </View>
-                        <Text className="flex-1 text-sm text-gray-600 text-right">{row.project}</Text>
-                    </View>
-                ))}
-            </View>
+        <View style={{ gap: 14 }}>
+            <SharedList
+                title="Purchase Report"
+                data={purchaseReport}
+                headers={['Equipment', 'Count', 'Qty', 'Cost', 'Type']}
+                widths={['flex', 80, 80, 110, 90]}
+                getRow={r => [r.equipment_name ?? r.eq ?? '-', String(r.purchase_count ?? r.count ?? 0), String(r.total_quantity ?? r.qty ?? '-'), r.total_cost ?? r.cost ?? '-', r.purchase_type ?? r.type ?? '-']}
+                searchPlaceholder="Search purchase reports..."
+                onRefresh={() => {
+                    const pid = selectedProject.id !== 'all' ? parseInt(selectedProject.id) : undefined;
+                    setIsLoading(true);
+                    equipmentService.getPurchaseReport(pid).then(r => setPurchaseReport(Array.isArray(r?.data ?? r) ? (r?.data ?? r) : [])).finally(() => setIsLoading(false));
+                }}
+            />
+            <SharedList
+                title="Availability Report"
+                data={availabilityReport}
+                headers={['Equipment', 'Available', 'Project']}
+                widths={['flex', 100, 140]}
+                getRow={r => [r.equipment_name ?? r.eq ?? '-', r.is_available ? 'TRUE' : 'FALSE', r.project_name ?? r.project ?? '-']}
+                searchPlaceholder="Search availability..."
+                onRefresh={() => {
+                    const pid = selectedProject.id !== 'all' ? parseInt(selectedProject.id) : undefined;
+                    setIsLoading(true);
+                    equipmentService.getAvailabilityReport(pid).then(r => setAvailabilityReport(Array.isArray(r?.data ?? r) ? (r?.data ?? r) : [])).finally(() => setIsLoading(false));
+                }}
+            />
         </View>
     );
 
@@ -837,55 +1032,104 @@ export default function MachineryEquipmentScreen() {
     };
 
     return (
-        <View className="flex-1 bg-gray-50">
-            <TopHeader 
-                title="Machinery & Equipment" 
-                subtitle="Engineer > Machinery > Dashboard" 
-            />
-            
-            <ScrollView className="flex-1 px-4 py-6" showsVerticalScrollIndicator={false}>
-                
-                {/* Header Section */}
-                <View className="mb-6 flex-col md:flex-row md:items-center justify-between">
-                    <View className="mb-4 md:mb-0">
-                        <Text className="text-xl font-bold text-gray-900">Machinery & Equipment</Text>
-                        <Text className="text-sm text-gray-500 mt-1">Complete lifecycle tracking — allocation, usage, maintenance, cost</Text>
+        <View style={{ flex: 1, backgroundColor: '#F4F6F9' }}>
+            <TopHeader title="Machinery & Equipment" subtitle="Engineer > Machinery" />
+
+            <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+
+                {/* Page header + Active Project */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 16, paddingTop: 18, paddingBottom: 14 }}>
+                    <View style={{ flex: 1, marginRight: 12 }}>
+                        <Text style={{ fontSize: 19, fontWeight: '800', color: '#111827' }}>Machinery & Equipment</Text>
+                        <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 3 }}>Complete lifecycle tracking — allocation, usage, maintenance, cost</Text>
                     </View>
-                    
-                    <View className="flex-row items-center space-x-3">
-                        <TouchableOpacity className="flex-row items-center justify-between px-3 py-1.5 border border-gray-200 rounded-lg bg-white w-48">
-                            <View className="flex-row items-center">
-                                <Text className="text-xs text-gray-500 mr-2">Active Project:</Text>
-                                <Text className="text-xs font-bold text-gray-700">Sara City</Text>
-                            </View>
-                            <ChevronDown size={14} color="#6B7280" />
+                    <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={{ fontSize: 9, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 5 }}>Active Project</Text>
+                        <TouchableOpacity
+                            onPress={() => setProjectModalOpen(true)}
+                            style={{
+                                flexDirection: 'row', alignItems: 'center',
+                                backgroundColor: '#fff',
+                                borderWidth: 1.5, borderColor: '#2563EB',
+                                borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7,
+                            }}
+                        >
+                            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#2563EB', marginRight: 8 }} />
+                            <Text style={{ fontSize: 13, fontWeight: '700', color: '#2563EB', marginRight: 6 }}>{selectedProject.name}</Text>
+                            <ChevronDown size={13} color="#2563EB" />
                         </TouchableOpacity>
                     </View>
                 </View>
 
                 {/* Tabs */}
-                <View className="mb-6">
+                <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                        <View className="flex-row items-center bg-white rounded-[24px] p-1 border border-gray-200">
-                            {TABS.map((tab) => (
-                                <TouchableOpacity 
+                        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 24, padding: 4, borderWidth: 1, borderColor: '#E5E7EB' }}>
+                            {TABS.map(tab => (
+                                <TouchableOpacity
                                     key={tab}
-                                    onPress={() => setActiveTab(tab)}
-                                    className={`px-6 py-2 rounded-[24px] ${activeTab === tab ? 'bg-gray-100 shadow-sm' : 'bg-transparent'}`}
+                                    onPress={() => { setActiveTab(tab); setPage(1); setSearchText(''); }}
+                                    style={{
+                                        paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
+                                        backgroundColor: activeTab === tab ? '#F3F4F6' : 'transparent',
+                                    }}
                                 >
-                                    <Text className={`text-xs font-bold tracking-wider ${activeTab === tab ? 'text-gray-900' : 'text-gray-500'}`}>{tab}</Text>
+                                    <Text style={{ fontSize: 12, fontWeight: activeTab === tab ? '700' : '400', color: activeTab === tab ? '#111827' : '#6B7280' }}>
+                                        {tab}
+                                    </Text>
                                 </TouchableOpacity>
                             ))}
                         </View>
                     </ScrollView>
                 </View>
 
-                {/* Tab Content */}
-                {renderContent()}
-
-                {/* Padding at bottom for safe area */}
-                <View className="h-12" />
+                {/* Tab content */}
+                <View style={{ paddingHorizontal: 16, paddingBottom: 40 }}>
+                    {renderContent()}
+                </View>
             </ScrollView>
+
+            {/* Active Project Modal */}
+            <Modal visible={projectModalOpen} transparent animationType="fade" onRequestClose={() => setProjectModalOpen(false)}>
+                <TouchableOpacity
+                    style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center' }}
+                    activeOpacity={1}
+                    onPress={() => setProjectModalOpen(false)}
+                >
+                    <View style={{ marginHorizontal: 24, backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', elevation: 20 }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
+                            <Text style={{ fontSize: 15, fontWeight: '700', color: '#1F2937' }}>Select Active Project</Text>
+                            <TouchableOpacity onPress={() => setProjectModalOpen(false)}>
+                                <X size={18} color="#6B7280" />
+                            </TouchableOpacity>
+                        </View>
+                        {ALL_PROJECTS.map(proj => (
+                            <TouchableOpacity
+                                key={proj.id}
+                                onPress={() => { setSelectedProject(proj); setProjectModalOpen(false); }}
+                                style={{
+                                    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                                    paddingHorizontal: 16, paddingVertical: 14,
+                                    borderBottomWidth: 1, borderBottomColor: '#F9FAFB',
+                                    backgroundColor: selectedProject.id === proj.id ? '#EFF6FF' : '#fff',
+                                }}
+                            >
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: proj.id === 'all' ? '#2563EB' : '#16A34A', marginRight: 12 }} />
+                                    <Text style={{ fontSize: 14, color: selectedProject.id === proj.id ? '#1D4ED8' : '#374151', fontWeight: selectedProject.id === proj.id ? '700' : '400' }}>
+                                        {proj.name}
+                                    </Text>
+                                </View>
+                                {selectedProject.id === proj.id && (
+                                    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#2563EB', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: '900' }}>✓</Text>
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                </TouchableOpacity>
+            </Modal>
         </View>
     );
 }

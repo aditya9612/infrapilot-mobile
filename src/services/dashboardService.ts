@@ -46,57 +46,50 @@ export interface AdminDashboardData {
 }
 
 export interface EngineerDashboardData {
-    project_overview: {
-        name: string;
-        description: string;
-    };
+    project_id: number;
+    project_name: string;
+    status: string;
+    progress: number;
+    planned_progress: number;
+    variance: number;
     vitals: {
-        total_labour: number;
-        skilled_labour: number;
-        unskilled_labour: number;
+        total_labour_today: number;
         active_activities: number;
-        open_issues: number;
-        high_priority_issues: number;
-        material_stock_status: number;
-        in_stock: number;
-        low_out_stock: number;
-    };
-    today_work_summary: Array<{
-        id: string;
-        activity: string;
-        timestamp: string;
-    }>;
-    overall_progress: {
-        completed_percentage: number;
-        planned_percentage: number;
-        variance_percentage: number;
-    };
-    discipline_wise_completion: Array<{
-        name: string;
-        planned_percentage: number;
-        actual_percentage: number;
-    }>;
-    project_phase_timeline: Array<{
-        id: number;
-        phase_name: string;
-        start_date: string;
-        end_date: string;
-        status: 'PLANNED' | 'COMPLETED' | 'DELAYED' | 'IN_PROGRESS';
-    }>;
-    expense_register: {
-        total_spent: number;
-        labour_spent: number;
-        material_spent: number;
-        equipment_spent: number;
-        expenses: Array<{
-            id: string;
-            date: string;
-            type: string;
+        open_issues: {
+            total: number;
+            high_priority: number;
+        };
+        material_stock_status: Array<{
             category: string;
-            note: string;
-            amount: number;
+            status: string;
         }>;
     };
+    today_work_summary: Array<{
+        activity_name: string;
+        status: string;
+        start_time: string;
+        finish_time: string;
+    }>;
+    discipline_progress: Array<{
+        discipline: string;
+        planned_percent: number;
+        actual_percent: number;
+    }>;
+    timeline: Array<{
+        id: number;
+        title: string;
+        status: 'PLANNED' | 'COMPLETED' | 'DELAYED' | 'IN_PROGRESS' | string;
+        start_date: string;
+        end_date: string;
+    }>;
+    recent_expenses: Array<{
+        date: string;
+        type: string;
+        category: string;
+        note: string;
+        amount: number;
+    }>;
+    weather: any;
 }
 
 export const dashboardService = {

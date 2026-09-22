@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Circle, Text as SvgText } from 'react-native-svg';
 
 interface CircularProgressProps {
     percentage: number;
@@ -46,13 +46,28 @@ export default function CircularProgress({
                     originX={halfCircle}
                     originY={halfCircle}
                 />
-            </Svg>
-            <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }]}>
-                <Text style={{ fontSize: radius * 0.4, fontWeight: 'bold', color: '#1f2937' }}>
+                <SvgText
+                    x={halfCircle}
+                    y={halfCircle - (radius * 0.1)}
+                    fontSize={radius * 0.4}
+                    fontWeight="bold"
+                    fill="#1f2937"
+                    textAnchor="middle"
+                    alignmentBaseline="middle"
+                >
                     {percentage}%
-                </Text>
-                <Text style={{ fontSize: radius * 0.15, color: '#6b7280' }}>Completed</Text>
-            </View>
+                </SvgText>
+                <SvgText
+                    x={halfCircle}
+                    y={halfCircle + (radius * 0.3)}
+                    fontSize={radius * 0.18}
+                    fill="#6b7280"
+                    textAnchor="middle"
+                    alignmentBaseline="middle"
+                >
+                    Completed
+                </SvgText>
+            </Svg>
         </View>
     );
 }
