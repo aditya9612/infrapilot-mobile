@@ -3,9 +3,32 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, TextInput, TouchableOpacity } from 'react-native';
 import { useNavigation } from 'expo-router';
 import { Menu, Bell, RefreshCw, Filter, Search, Calendar as CalendarIcon, ChevronDown, Download, FileText, FileSpreadsheet, Eye, ClipboardList, Users, Package, AlertTriangle } from 'lucide-react-native';
+import { useProjectContext } from '../../contexts/ProjectContext';
+import { reportService } from '../../services/reportService';
+import { ActivityIndicator } from 'react-native';
 
 export default function ReportsScreen() {
     const navigation = useNavigation();
+    const { activeProjectName, activeProjectId } = useProjectContext();
+    const [reports, setReports] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+
+    const loadReports = async () => {
+        if (!activeProjectId) return;
+        setIsLoading(true);
+        try {
+            const data = await reportService.getProjectReports(String(activeProjectId));
+            setReports(data || []);
+        } catch (error) {
+            console.error('Failed to load reports', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    React.useEffect(() => {
+        loadReports();
+    }, [activeProjectId]);
 
     const StatCard = ({ title, value, subtitle, valueColor = 'text-blue-600' }: any) => (
         <View className="w-full sm:w-1/2 lg:w-1/4 p-2">
@@ -70,7 +93,7 @@ export default function ReportsScreen() {
     return (
         <View className="flex-1 bg-gray-50 flex-col">
             
-            <TopHeader title="Reports" subtitle="{title}" />
+            <TopHeader title="Reports" subtitle={`Engineer > ${activeProjectName} > Reports`} />
 
 
             <ScrollView className="flex-1" contentContainerStyle={{ padding: 16, paddingBottom: 60 }}>
@@ -80,7 +103,7 @@ export default function ReportsScreen() {
                         <Text className="text-2xl font-bold text-gray-900">Reports</Text>
                         <Text className="text-sm text-gray-500 mt-1">Generate, view, and export daily, weekly, labour, material, and issue reports.</Text>
                     </View>
-                    <TouchableOpacity className="bg-blue-600 flex-row items-center px-4 py-2.5 rounded-md self-start">
+                    <TouchableOpacity onPress={loadReports} className="bg-blue-600 flex-row items-center px-4 py-2.5 rounded-md self-start">
                         <RefreshCw size={16} color="#FFF" className="mr-2" />
                         <Text className="text-white font-medium text-sm">Refresh Reports</Text>
                     </TouchableOpacity>
@@ -152,59 +175,32 @@ export default function ReportsScreen() {
                 </ScrollView>
 
                 {/* Reports Grid */}
-                <View className="flex-row flex-wrap -mx-3">
-                    <ReportCard 
-                        icon={ClipboardList} iconColor="#F59E0B"
-                        title="Daily Report" size="1.2 MB"
-                        description="Full summary of today's site operations — labour deployed, work completed, materials consumed, and any issues logged."
-                        stats={[
-                            { label: 'TOTAL LABOUR', value: '5 Labour' },
-                            { label: 'SKILLED', value: '5' },
-                            { label: 'WEATHER', value: 'Sunny' },
-                            { label: 'LOCATION', value: 'Bhor, Pune District, Maharashtra, 412213, India' },
-                        ]}
-                        timestamp="Generated: 10:03 AM"
-                    />
-                    
-                    <ReportCard 
-                        icon={Users} iconColor="#F59E0B"
-                        title="Labour Report" size="0.8 MB"
-                        description="Workforce breakdown by skill category, attendance, overtime, and contractor-wise deployment summary."
-                        stats={[
-                            { label: 'SKILLED LABOUR', value: '45' },
-                            { label: 'UNSKILLED LABOUR', value: '88' },
-                            { label: 'SUPERVISORS', value: '9' },
-                            { label: 'OVERTIME HOURS', value: '24 hrs' },
-                        ]}
-                        timestamp="Today, 07:15 AM"
-                    />
-                    
-                    <ReportCard 
-                        icon={Package} iconColor="#EF4444"
-                        title="Material Consumption" size="2.1 MB"
-                        description="Inflow vs outflow reconciliation for all materials — cement, steel, aggregates — with stock closing balances."
-                        stats={[
-                            { label: 'TOTAL STOCK ITEMS', value: '24' },
-                            { label: 'STOCK QTY', value: '1987.0' },
-                            { label: 'STOCK VALUE', value: '₹1230.4k' },
-                            { label: 'STATUS', value: 'Updated' },
-                        ]}
-                        timestamp="Yesterday, 05:45 PM"
-                    />
-                    
-                    <ReportCard 
-                        icon={AlertTriangle} iconColor="#F59E0B"
-                        title="Issue Report" size="0.5 MB"
-                        description="Logged site issues, safety observations, delays, and their current resolution status and priority levels."
-                        stats={[
-                            { label: 'OPEN ISSUES', value: '14' },
-                            { label: 'CRITICAL', value: '5' },
-                            { label: 'RESOLVED', value: '4' },
-                            { label: 'TOTAL', value: '18' },
-                        ]}
-                        timestamp="Today, 11:30 AM"
-                    />
-                </View>
+                {isLoading ? (
+                    <View className="flex-1 items-center justify-center py-20">
+                        <ActivityIndicator size="large" color="#2563EB" />
+                        <Text className="text-gray-500 mt-4 font-medium">Loading Reports...</Text>
+                    </View>
+                ) : reports.length === 0 ? (
+                    <View className="flex-1 items-center justify-center py-20">
+                        <ClipboardList size={48} color="#E5E7EB" />
+                        <Text className="text-gray-500 mt-4 font-medium">No reports found for this project.</Text>
+                    </View>
+                ) : (
+                    <View className="flex-row flex-wrap -mx-3">
+                        {reports.map((report, idx) => (
+                            <ReportCard 
+                                key={report.id || idx}
+                                icon={ClipboardList} iconColor="#F59E0B"
+                                title={report.title || "Report"} size={report.size || "1.0 MB"}
+                                description={report.description || "Generated report details"}
+                                stats={[
+                                    { label: 'STATUS', value: report.status || 'Generated' }
+                                ]}
+                                timestamp={report.createdAt || "Recently"}
+                            />
+                        ))}
+                    </View>
+                )}
             </ScrollView>
         </View>
     );

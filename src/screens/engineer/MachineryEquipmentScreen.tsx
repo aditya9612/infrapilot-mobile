@@ -1,9 +1,15 @@
 import {
+    Activity,
+    AlertTriangle,
+    ArrowRightLeft,
+    BarChart3,
+    CheckCircle2,
     ChevronDown, ChevronLeft, ChevronRight,
     Clock,
     Copy,
     Edit2,
     Eye,
+    FileText,
     Grid,
     Key,
     Link,
@@ -11,7 +17,11 @@ import {
     RefreshCw,
     RotateCcw,
     Search,
+    ShieldAlert,
+    ShoppingCart,
     Trash2,
+    Truck,
+    Wrench,
     X
 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
@@ -33,6 +43,18 @@ const TABS = [
     'Maintenance', 'Rental', 'Purchase', 'Reports', 'Project Report'
 ];
 
+const TAB_ICONS: Record<string, any> = {
+    'Dashboard': Activity,
+    'Machinery & Equipment List': Wrench,
+    'Usage': Clock,
+    'Transfer Equipment': ArrowRightLeft,
+    'Maintenance': ShieldAlert,
+    'Rental': Truck,
+    'Purchase': ShoppingCart,
+    'Reports': BarChart3,
+    'Project Report': FileText,
+};
+
 const ALL_PROJECTS = [
     { id: 'all', name: 'All Projects' },
     { id: '1', name: 'Sara City' },
@@ -46,13 +68,13 @@ const ALL_PROJECTS = [
 const CONDITIONS = ['All Conditions', 'GOOD', 'REPAIR', 'DAMAGED', 'MAINTENANCE'];
 const ALLOCATION_OPTS = ['All Projects', 'Allocated', 'Deallocated'];
 
-const STAT_COLORS = [
-    { color: '#1D4ED8', bg: '#EFF6FF' },
-    { color: '#16A34A', bg: '#F0FDF4' },
-    { color: '#2563EB', bg: '#DBEAFE' },
-    { color: '#D97706', bg: '#FFFBEB' },
-    { color: '#DC2626', bg: '#FEF2F2' },
-    { color: '#7C3AED', bg: '#F5F3FF' },
+const STAT_CONFIGS = [
+    { color: '#2563EB', bg: '#EFF6FF', borderColor: '#BFDBFE', icon: Wrench },
+    { color: '#16A34A', bg: '#F0FDF4', borderColor: '#BBF7D0', icon: CheckCircle2 },
+    { color: '#3B82F6', bg: '#DBEAFE', borderColor: '#93C5FD', icon: Activity },
+    { color: '#D97706', bg: '#FFFBEB', borderColor: '#FDE68A', icon: Clock },
+    { color: '#DC2626', bg: '#FEF2F2', borderColor: '#FECACA', icon: AlertTriangle },
+    { color: '#7C3AED', bg: '#F5F3FF', borderColor: '#DDD6FE', icon: ShoppingCart },
 ];
 
 // ─── Modal Dropdown With ID ───────────────────────────────────────────────────
@@ -180,35 +202,36 @@ function ModalDropdown({
 
 // ─── Badges ───────────────────────────────────────────────────────────────────
 function ConditionBadge({ condition }: { condition: string }) {
-    const map: Record<string, { bg: string; text: string }> = {
-        GOOD: { bg: '#22C55E', text: '#fff' },
-        REPAIR: { bg: '#F97316', text: '#fff' },
-        DAMAGED: { bg: '#EF4444', text: '#fff' },
-        MAINTENANCE: { bg: '#F59E0B', text: '#fff' },
+    const map: Record<string, { bg: string; text: string; border: string }> = {
+        GOOD: { bg: '#DCFCE7', text: '#15803D', border: '#86EFAC' },
+        REPAIR: { bg: '#FFEDD5', text: '#C2410C', border: '#FDBA74' },
+        DAMAGED: { bg: '#FEE2E2', text: '#B91C1C', border: '#FCA5A5' },
+        MAINTENANCE: { bg: '#FEF3C7', text: '#B45309', border: '#FDE68A' },
     };
     const key = (condition || '').toUpperCase();
-    const c = map[key] || { bg: '#9CA3AF', text: '#fff' };
+    const c = map[key] || { bg: '#F1F5F9', text: '#64748B', border: '#CBD5E1' };
     return (
-        <View style={{ backgroundColor: c.bg, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, alignSelf: 'flex-start' }}>
-            <Text style={{ fontSize: 10, fontWeight: '700', color: c.text }}>{key || 'N/A'}</Text>
+        <View style={{ backgroundColor: c.bg, borderWidth: 1, borderColor: c.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' }}>
+            <Text style={{ fontSize: 10, fontWeight: '800', color: c.text, letterSpacing: 0.5 }}>{key || 'N/A'}</Text>
         </View>
     );
 }
 
-function ProjectBadge({ project }: { project: string }) {
-    const ok = project && project !== 'null' && project !== 'Not Allocated';
+function ProjectBadge({ project }: { project: any }) {
+    const projName = typeof project === 'string' ? project : (project?.name || project?.project_name || '');
+    const ok = projName && projName.trim() !== '' && projName !== 'null' && projName !== 'undefined' && projName.toLowerCase() !== 'not allocated';
     return (
         <View style={{
             borderWidth: 1,
-            borderColor: ok ? '#BFDBFE' : '#D1D5DB',
+            borderColor: ok ? '#BFDBFE' : '#E2E8F0',
             borderRadius: 6,
-            paddingHorizontal: 7,
-            paddingVertical: 2,
+            paddingHorizontal: 8,
+            paddingVertical: 3,
             alignSelf: 'flex-start',
-            backgroundColor: ok ? '#EFF6FF' : 'transparent',
+            backgroundColor: ok ? '#EFF6FF' : '#F8FAFC',
         }}>
-            <Text style={{ fontSize: 10, fontWeight: '600', color: ok ? '#2563EB' : '#9CA3AF' }}>
-                {ok ? project : 'Not Allocated'}
+            <Text style={{ fontSize: 10, fontWeight: '700', color: ok ? '#1D4ED8' : '#64748B' }}>
+                {ok ? projName : 'Not Allocated'}
             </Text>
         </View>
     );
@@ -230,8 +253,13 @@ export default function MachineryEquipmentScreen() {
     const [usageLogPage, setUsageLogPage] = useState(1);
     const [limit, setLimit] = useState(10);
     const [isLoading, setIsLoading] = useState(false);
-    const [selectedProject, setSelectedProject] = useState(ALL_PROJECTS[0]);
+    const activeProjectName = projects.find((p: any) => String(p.id) === String(activeProjectId) || String(p.project_id) === String(activeProjectId))?.name || (projects.find((p: any) => String(p.id) === String(activeProjectId) || String(p.project_id) === String(activeProjectId)) as any)?.project_name || 'Sara City';
+    const [selectedProject, setSelectedProject] = useState({ id: activeProjectId, name: activeProjectName });
     const [projectModalOpen, setProjectModalOpen] = useState(false);
+
+    useEffect(() => {
+        setSelectedProject({ id: activeProjectId, name: activeProjectName });
+    }, [activeProjectId, activeProjectName]);
 
     // Equipment list filters
     const [searchText, setSearchText] = useState('');
@@ -267,7 +295,7 @@ export default function MachineryEquipmentScreen() {
     useEffect(() => { setPage(1); }, [activeTab, conditionFilter, allocationFilter, searchText]);
 
     useEffect(() => {
-        const pid = selectedProject.id !== 'all' ? parseInt(selectedProject.id) : undefined;
+        const pid = selectedProject.id ? parseInt(String(selectedProject.id)) : undefined;
         const load = async () => {
             setIsLoading(true);
             try {
@@ -414,51 +442,81 @@ export default function MachineryEquipmentScreen() {
     // ─── Dashboard ─────────────────────────────────────────────────────────────
     const renderDashboard = () => (
         <View>
-            <Text style={{ fontSize: 10, fontWeight: '700', color: '#9CA3AF', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 12 }}>Quick Stats</Text>
-
-            {/* 2-column grid of stat cards */}
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 20, gap: 10 }}>
-                {kpiStats.map((s, i) => (
-                    <View
-                        key={s.label}
-                        style={{
-                            width: '47.5%',
-                            backgroundColor: '#fff',
-                            borderRadius: 12,
-                            borderWidth: 1,
-                            borderColor: '#F3F4F6',
-                            padding: 14,
-                        }}
-                    >
-                        <Text style={{ fontSize: 9, fontWeight: '700', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>{s.label}</Text>
-                        <Text style={{ fontSize: 26, fontWeight: '800', color: STAT_COLORS[i]?.color ?? '#1D4ED8', marginBottom: 4 }}>{s.value}</Text>
-                        <Text style={{ fontSize: 10, color: '#9CA3AF' }}>{s.sub}</Text>
-                    </View>
-                ))}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: '#64748B', letterSpacing: 1.5, textTransform: 'uppercase' }}>Fleet Key Metrics</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#22C55E', marginRight: 6 }} />
+                    <Text style={{ fontSize: 11, color: '#16A34A', fontWeight: '700' }}>Live Updates</Text>
+                </View>
             </View>
 
-            <Text style={{ fontSize: 10, fontWeight: '700', color: '#9CA3AF', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 12 }}>Alerts & Maintenance</Text>
+            {/* 2-column grid of stat cards */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 20, gap: 12 }}>
+                {kpiStats.map((s, i) => {
+                    const cfg = STAT_CONFIGS[i] || STAT_CONFIGS[0];
+                    const IconComp = cfg.icon;
+                    return (
+                        <View
+                            key={s.label}
+                            style={{
+                                width: '48%',
+                                backgroundColor: '#fff',
+                                borderRadius: 14,
+                                borderWidth: 1,
+                                borderColor: '#E2E8F0',
+                                padding: 16,
+                                shadowColor: '#0F172A',
+                                shadowOffset: { width: 0, height: 2 },
+                                shadowOpacity: 0.04,
+                                shadowRadius: 6,
+                                elevation: 2,
+                            }}
+                        >
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: cfg.bg, borderWidth: 1, borderColor: cfg.borderColor, alignItems: 'center', justifyContent: 'center' }}>
+                                    <IconComp size={18} color={cfg.color} />
+                                </View>
+                                <View style={{ backgroundColor: cfg.bg, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 }}>
+                                    <Text style={{ fontSize: 9, fontWeight: '800', color: cfg.color }}>ACTIVE</Text>
+                                </View>
+                            </View>
+                            <Text style={{ fontSize: 10, fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 }}>{s.label}</Text>
+                            <Text style={{ fontSize: 26, fontWeight: '800', color: '#0F172A', marginBottom: 4 }}>{s.value}</Text>
+                            <Text style={{ fontSize: 11, color: '#64748B', fontWeight: '500' }}>{s.sub}</Text>
+                        </View>
+                    );
+                })}
+            </View>
+
+            <Text style={{ fontSize: 11, fontWeight: '800', color: '#64748B', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 14 }}>Alerts & Diagnostics</Text>
 
             {/* Maintenance alerts */}
-            <View style={{ backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#F3F4F6', overflow: 'hidden', marginBottom: 12 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
-                    <Text style={{ fontSize: 15, marginRight: 8 }}>🔧</Text>
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#374151', textTransform: 'uppercase', letterSpacing: 0.8 }}>Maintenance Alerts</Text>
+            <View style={{ backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E2E8F0', overflow: 'hidden', marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.03, elevation: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: '#F1F5F9', backgroundColor: '#F8FAFC' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                            <Wrench size={15} color="#2563EB" />
+                        </View>
+                        <Text style={{ fontSize: 13, fontWeight: '700', color: '#0F172A', textTransform: 'uppercase', letterSpacing: 0.5 }}>Maintenance Alerts</Text>
+                    </View>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#2563EB' }}>{maintenanceAlerts.length} Total</Text>
                 </View>
                 {maintenanceAlerts.length === 0 ? (
-                    <View style={{ padding: 32, alignItems: 'center' }}>
-                        <Text style={{ color: '#9CA3AF', fontSize: 13 }}>No maintenance alerts</Text>
+                    <View style={{ padding: 36, alignItems: 'center' }}>
+                        <CheckCircle2 size={32} color="#CBD5E1" style={{ marginBottom: 8 }} />
+                        <Text style={{ color: '#64748B', fontSize: 14, fontWeight: '600' }}>No pending maintenance alerts</Text>
+                        <Text style={{ color: '#94A3B8', fontSize: 12, marginTop: 2 }}>All machinery operating within optimal parameters</Text>
                     </View>
                 ) : (
-                    <View style={{ padding: 12, gap: 8 }}>
+                    <View style={{ padding: 14, gap: 10 }}>
                         {maintenanceAlerts.map((a: any, i: number) => (
-                            <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 10, backgroundColor: '#F9FAFB', borderRadius: 8, borderWidth: 1, borderColor: '#F3F4F6' }}>
+                            <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14, backgroundColor: '#F8FAFC', borderRadius: 10, borderWidth: 1, borderColor: '#E2E8F0' }}>
                                 <View style={{ flex: 1 }}>
-                                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#1F2937' }}>{a.equipment_name ?? a.name ?? 'Equipment'}</Text>
-                                    <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>{a.due_date ?? a.maintenance_date ?? ''}</Text>
+                                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>{a.equipment_name ?? a.name ?? 'Equipment'}</Text>
+                                    <Text style={{ fontSize: 12, color: '#64748B', marginTop: 3 }}>Due: {a.due_date ?? a.maintenance_date ?? 'Not Specified'}</Text>
                                 </View>
-                                <View style={{ backgroundColor: a.status === 'OVERDUE' ? '#FEF2F2' : '#FEFCE8', borderRadius: 5, paddingHorizontal: 7, paddingVertical: 2 }}>
-                                    <Text style={{ fontSize: 10, fontWeight: '700', color: a.status === 'OVERDUE' ? '#EF4444' : '#CA8A04' }}>{a.status ?? 'UPCOMING'}</Text>
+                                <View style={{ backgroundColor: a.status === 'OVERDUE' ? '#FEE2E2' : '#FEF3C7', borderWidth: 1, borderColor: a.status === 'OVERDUE' ? '#FCA5A5' : '#FDE68A', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 }}>
+                                    <Text style={{ fontSize: 11, fontWeight: '800', color: a.status === 'OVERDUE' ? '#DC2626' : '#D97706' }}>{a.status ?? 'UPCOMING'}</Text>
                                 </View>
                             </View>
                         ))}
@@ -535,7 +593,7 @@ export default function MachineryEquipmentScreen() {
                 <View style={{ flexDirection: 'row', paddingHorizontal: 12, paddingBottom: 12, gap: 8, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
                     <TouchableOpacity
                         onPress={() => {
-                            const pid = selectedProject.id !== 'all' ? parseInt(selectedProject.id) : undefined;
+                            const pid = selectedProject.id ? parseInt(String(selectedProject.id)) : undefined;
                             setIsLoading(true);
                             equipmentService.getEquipmentList(pid).then(r => { const a = r?.data ?? r?.items ?? r?.equipment ?? r ?? []; setEquipmentList(Array.isArray(a) ? a : []); }).catch(() => { }).finally(() => setIsLoading(false));
                         }}
@@ -569,35 +627,43 @@ export default function MachineryEquipmentScreen() {
                                 <Text style={{ width: 115, fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>Maintenance</Text>
                                 <Text style={{ width: 200, fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', textAlign: 'right' }}>Actions</Text>
                             </View>
-                            {filteredEq.slice((page - 1) * limit, page * limit).map((row: any, i: number) => (
-                                <View key={row.id ?? i} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: '#F9FAFB', backgroundColor: i % 2 === 0 ? '#fff' : '#FAFAFA' }}>
-                                    <View style={{ width: 160 }}>
-                                        <Text style={{ fontSize: 13, fontWeight: '700', color: '#1F2937' }}>{row.name ?? row.equipment_name ?? '-'}</Text>
-                                        <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 1 }}>{row.equipment_code ?? row.code ?? ''}</Text>
+                            {filteredEq.slice((page - 1) * limit, page * limit).map((row: any, i: number) => {
+                                const projVal = row.project_name ?? row.current_project_name ?? row.allocated_project ?? row.project?.name ?? (typeof row.project === 'string' ? row.project : null);
+                                const ownershipVal = row.ownership ?? row.ownership_type ?? row.ownership_status ?? (row.is_rented ? 'RENTED' : row.is_owned ? 'OWNED' : '-');
+                                const operatorVal = row.operator_name ?? row.operator ?? row.driver_name ?? '-';
+                                const usageVal = row.total_usage_hours ?? row.usage_hours ?? row.total_hours ?? row.hours ?? row.usage ?? '0';
+                                const maintenanceVal = row.next_maintenance_date ?? row.maintenance_date ?? row.last_maintenance_date ?? row.maintenance_due ?? row.next_service_date ?? row.maintenance ?? '-';
+
+                                return (
+                                    <View key={row.id ?? i} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: '#F9FAFB', backgroundColor: i % 2 === 0 ? '#fff' : '#FAFAFA' }}>
+                                        <View style={{ width: 160 }}>
+                                            <Text style={{ fontSize: 13, fontWeight: '700', color: '#1F2937' }}>{row.name ?? row.equipment_name ?? '-'}</Text>
+                                            <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 1 }}>{row.equipment_code ?? row.code ?? ''}</Text>
+                                        </View>
+                                        <View style={{ width: 130 }}>
+                                            <ProjectBadge project={projVal} />
+                                        </View>
+                                        <Text style={{ width: 100, fontSize: 12, fontWeight: '600', color: '#374151' }}>{ownershipVal}</Text>
+                                        <Text style={{ width: 120, fontSize: 13, color: '#374151' }}>{operatorVal}</Text>
+                                        <Text style={{ width: 65, fontSize: 12, color: '#2563EB', fontWeight: '700' }}>{usageVal} hrs</Text>
+                                        <View style={{ width: 95 }}>
+                                            <ConditionBadge condition={row.condition ?? 'GOOD'} />
+                                        </View>
+                                        <Text style={{ width: 115, fontSize: 11, color: '#374151', fontWeight: '500' }}>{maintenanceVal}</Text>
+                                        <View style={{ width: 200, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
+                                            <TouchableOpacity style={{ padding: 4 }}><Eye size={16} color="#9CA3AF" /></TouchableOpacity>
+                                            <TouchableOpacity style={{ padding: 4 }}><Edit2 size={16} color="#9CA3AF" /></TouchableOpacity>
+                                            <TouchableOpacity style={{ padding: 4 }}><Link size={16} color="#9CA3AF" /></TouchableOpacity>
+                                            <TouchableOpacity style={{ padding: 4 }}><RotateCcw size={16} color="#9CA3AF" /></TouchableOpacity>
+                                            <TouchableOpacity style={{ padding: 4 }}><Key size={16} color="#9CA3AF" /></TouchableOpacity>
+                                            <TouchableOpacity style={{ padding: 4 }}><Copy size={16} color="#9CA3AF" /></TouchableOpacity>
+                                            <TouchableOpacity style={{ padding: 4 }}><Clock size={16} color="#9CA3AF" /></TouchableOpacity>
+                                            <TouchableOpacity style={{ padding: 4 }}><Grid size={16} color="#9CA3AF" /></TouchableOpacity>
+                                            <TouchableOpacity style={{ padding: 4 }}><Trash2 size={16} color="#EF4444" /></TouchableOpacity>
+                                        </View>
                                     </View>
-                                    <View style={{ width: 130 }}>
-                                        <ProjectBadge project={row.project_name ?? row.project?.name ?? (typeof row.project === 'string' ? row.project : '')} />
-                                    </View>
-                                    <Text style={{ width: 100, fontSize: 12, fontWeight: '600', color: '#374151' }}>{row.ownership ?? row.ownership_type ?? '-'}</Text>
-                                    <Text style={{ width: 120, fontSize: 13, color: '#374151' }}>{row.operator_name ?? row.operator ?? '-'}</Text>
-                                    <Text style={{ width: 65, fontSize: 12, color: '#6B7280', fontWeight: '600' }}>{row.total_usage_hours ?? row.usage_hours ?? row.total_hours ?? row.usage ?? '0'} hrs</Text>
-                                    <View style={{ width: 95 }}>
-                                        <ConditionBadge condition={row.condition ?? 'GOOD'} />
-                                    </View>
-                                    <Text style={{ width: 115, fontSize: 11, color: '#374151' }}>{row.next_maintenance_date ?? row.maintenance ?? '-'}</Text>
-                                    <View style={{ width: 200, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
-                                        <TouchableOpacity><Eye size={16} color="#9CA3AF" /></TouchableOpacity>
-                                        <TouchableOpacity><Edit2 size={16} color="#9CA3AF" /></TouchableOpacity>
-                                        <TouchableOpacity><Link size={16} color="#9CA3AF" /></TouchableOpacity>
-                                        <TouchableOpacity><RotateCcw size={16} color="#9CA3AF" /></TouchableOpacity>
-                                        <TouchableOpacity><Key size={16} color="#9CA3AF" /></TouchableOpacity>
-                                        <TouchableOpacity><Copy size={16} color="#9CA3AF" /></TouchableOpacity>
-                                        <TouchableOpacity><Clock size={16} color="#9CA3AF" /></TouchableOpacity>
-                                        <TouchableOpacity><Grid size={16} color="#9CA3AF" /></TouchableOpacity>
-                                        <TouchableOpacity><Trash2 size={16} color="#EF4444" /></TouchableOpacity>
-                                    </View>
-                                </View>
-                            ))}
+                                );
+                            })}
                         </View>
                     </ScrollView>
                 )}
@@ -909,7 +975,7 @@ export default function MachineryEquipmentScreen() {
             getRow={r => [r.equipment_name ?? r.name ?? '-', r.equipment_code ?? '-', r.due_date ?? r.maintenance_date ?? '-', r.status ?? 'UPCOMING']}
             searchPlaceholder="Search maintenance..."
             onRefresh={() => {
-                const pid = selectedProject.id !== 'all' ? parseInt(selectedProject.id) : undefined;
+                const pid = selectedProject.id ? parseInt(String(selectedProject.id)) : undefined;
                 setIsLoading(true);
                 equipmentService.getMaintenanceList(pid).then(r => setMaintenanceList(Array.isArray(r?.data ?? r) ? (r?.data ?? r) : [])).finally(() => setIsLoading(false));
             }}
@@ -927,7 +993,7 @@ export default function MachineryEquipmentScreen() {
             getRow={r => [r.equipment_name ?? r.eq ?? '-', r.start_date ?? '-', r.end_date ?? '-', r.cost ?? '-', r.client ?? '-', r.status ?? '-']}
             searchPlaceholder="Search rentals..."
             onRefresh={() => {
-                const pid = selectedProject.id !== 'all' ? parseInt(selectedProject.id) : undefined;
+                const pid = selectedProject.id ? parseInt(String(selectedProject.id)) : undefined;
                 setIsLoading(true);
                 equipmentService.getRentalList(pid).then(r => setRentalList(Array.isArray(r?.data ?? r) ? (r?.data ?? r) : [])).finally(() => setIsLoading(false));
             }}
@@ -945,7 +1011,7 @@ export default function MachineryEquipmentScreen() {
             getRow={r => [r.equipment_name ?? r.name ?? '-', r.purchase_date ?? '-', r.vendor ?? '-', String(r.quantity ?? r.qty ?? '-'), r.total_cost ?? r.total ?? '-', r.purchase_type ?? r.type ?? '-']}
             searchPlaceholder="Search purchases..."
             onRefresh={() => {
-                const pid = selectedProject.id !== 'all' ? parseInt(selectedProject.id) : undefined;
+                const pid = selectedProject.id ? parseInt(String(selectedProject.id)) : undefined;
                 setIsLoading(true);
                 equipmentService.getPurchaseList(pid).then(r => setPurchaseList(Array.isArray(r?.data ?? r) ? (r?.data ?? r) : [])).finally(() => setIsLoading(false));
             }}
@@ -964,7 +1030,7 @@ export default function MachineryEquipmentScreen() {
                 getRow={r => [r.equipment_name ?? r.eq ?? '-', String(r.hours_used ?? r.hrs ?? 0), String(r.utilization_rate ?? r.rate ?? 0) + '%']}
                 searchPlaceholder="Search utilization..."
                 onRefresh={() => {
-                    const pid = selectedProject.id !== 'all' ? parseInt(selectedProject.id) : undefined;
+                    const pid = selectedProject.id ? parseInt(String(selectedProject.id)) : undefined;
                     setIsLoading(true);
                     equipmentService.getUtilizationReport(pid).then(r => setUtilizationReport(Array.isArray(r?.data ?? r) ? (r?.data ?? r) : [])).finally(() => setIsLoading(false));
                 }}
@@ -977,7 +1043,7 @@ export default function MachineryEquipmentScreen() {
                 getRow={r => [r.equipment_name ?? r.eq ?? '-', r.total_cost ?? r.cost ?? '-', r.avg_cost ?? '-', String(r.total_days ?? r.days ?? 0)]}
                 searchPlaceholder="Search cost records..."
                 onRefresh={() => {
-                    const pid = selectedProject.id !== 'all' ? parseInt(selectedProject.id) : undefined;
+                    const pid = selectedProject.id ? parseInt(String(selectedProject.id)) : undefined;
                     setIsLoading(true);
                     equipmentService.getCostReport(pid).then(r => setCostReport(Array.isArray(r?.data ?? r) ? (r?.data ?? r) : [])).finally(() => setIsLoading(false));
                 }}
@@ -995,7 +1061,7 @@ export default function MachineryEquipmentScreen() {
                 getRow={r => [r.equipment_name ?? r.eq ?? '-', String(r.purchase_count ?? r.count ?? 0), String(r.total_quantity ?? r.qty ?? '-'), r.total_cost ?? r.cost ?? '-', r.purchase_type ?? r.type ?? '-']}
                 searchPlaceholder="Search purchase reports..."
                 onRefresh={() => {
-                    const pid = selectedProject.id !== 'all' ? parseInt(selectedProject.id) : undefined;
+                    const pid = selectedProject.id ? parseInt(String(selectedProject.id)) : undefined;
                     setIsLoading(true);
                     equipmentService.getPurchaseReport(pid).then(r => setPurchaseReport(Array.isArray(r?.data ?? r) ? (r?.data ?? r) : [])).finally(() => setIsLoading(false));
                 }}
@@ -1008,7 +1074,7 @@ export default function MachineryEquipmentScreen() {
                 getRow={r => [r.equipment_name ?? r.eq ?? '-', r.is_available ? 'TRUE' : 'FALSE', r.project_name ?? r.project ?? '-']}
                 searchPlaceholder="Search availability..."
                 onRefresh={() => {
-                    const pid = selectedProject.id !== 'all' ? parseInt(selectedProject.id) : undefined;
+                    const pid = selectedProject.id ? parseInt(String(selectedProject.id)) : undefined;
                     setIsLoading(true);
                     equipmentService.getAvailabilityReport(pid).then(r => setAvailabilityReport(Array.isArray(r?.data ?? r) ? (r?.data ?? r) : [])).finally(() => setIsLoading(false));
                 }}
@@ -1032,31 +1098,32 @@ export default function MachineryEquipmentScreen() {
     };
 
     return (
-        <View style={{ flex: 1, backgroundColor: '#F4F6F9' }}>
-            <TopHeader title="Machinery & Equipment" subtitle="Engineer > Machinery" />
+        <View style={{ flex: 1, backgroundColor: '#F1F5F9' }}>
+            <TopHeader title="Machinery & Equipment" subtitle={`Engineer > ${activeProjectName} > Machinery`} />
 
             <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
 
                 {/* Page header + Active Project */}
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 16, paddingTop: 18, paddingBottom: 14 }}>
                     <View style={{ flex: 1, marginRight: 12 }}>
-                        <Text style={{ fontSize: 19, fontWeight: '800', color: '#111827' }}>Machinery & Equipment</Text>
-                        <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 3 }}>Complete lifecycle tracking — allocation, usage, maintenance, cost</Text>
+                        <Text style={{ fontSize: 20, fontWeight: '800', color: '#0F172A', letterSpacing: -0.3 }}>Machinery & Fleet</Text>
+                        <Text style={{ fontSize: 12, color: '#64748B', marginTop: 3, fontWeight: '500' }}>Lifecycle tracking — allocation, usage, maintenance, cost</Text>
                     </View>
                     <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={{ fontSize: 9, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 5 }}>Active Project</Text>
+                        <Text style={{ fontSize: 10, fontWeight: '800', color: '#64748B', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 5 }}>Active Project</Text>
                         <TouchableOpacity
-                            onPress={() => setProjectModalOpen(true)}
+                            disabled={true}
                             style={{
                                 flexDirection: 'row', alignItems: 'center',
                                 backgroundColor: '#fff',
                                 borderWidth: 1.5, borderColor: '#2563EB',
-                                borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7,
+                                borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8,
+                                shadowColor: '#2563EB', shadowOpacity: 0.12, shadowOffset: { width: 0, height: 2 }, elevation: 2
                             }}
                         >
                             <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#2563EB', marginRight: 8 }} />
                             <Text style={{ fontSize: 13, fontWeight: '700', color: '#2563EB', marginRight: 6 }}>{selectedProject.name}</Text>
-                            <ChevronDown size={13} color="#2563EB" />
+                            <ChevronDown size={14} color="#2563EB" />
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -1064,21 +1131,28 @@ export default function MachineryEquipmentScreen() {
                 {/* Tabs */}
                 <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 24, padding: 4, borderWidth: 1, borderColor: '#E5E7EB' }}>
-                            {TABS.map(tab => (
-                                <TouchableOpacity
-                                    key={tab}
-                                    onPress={() => { setActiveTab(tab); setPage(1); setSearchText(''); }}
-                                    style={{
-                                        paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
-                                        backgroundColor: activeTab === tab ? '#F3F4F6' : 'transparent',
-                                    }}
-                                >
-                                    <Text style={{ fontSize: 12, fontWeight: activeTab === tab ? '700' : '400', color: activeTab === tab ? '#111827' : '#6B7280' }}>
-                                        {tab}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, padding: 5, borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOpacity: 0.03, elevation: 1 }}>
+                            {TABS.map(tab => {
+                                const IconComp = TAB_ICONS[tab] || Activity;
+                                const isActive = activeTab === tab;
+                                return (
+                                    <TouchableOpacity
+                                        key={tab}
+                                        onPress={() => { setActiveTab(tab); setPage(1); setSearchText(''); }}
+                                        style={{
+                                            flexDirection: 'row', alignItems: 'center',
+                                            paddingHorizontal: 14, paddingVertical: 9, borderRadius: 10,
+                                            backgroundColor: isActive ? '#2563EB' : 'transparent',
+                                            marginRight: 4,
+                                        }}
+                                    >
+                                        <IconComp size={15} color={isActive ? '#fff' : '#64748B'} style={{ marginRight: 6 }} />
+                                        <Text style={{ fontSize: 12, fontWeight: isActive ? '700' : '500', color: isActive ? '#fff' : '#475569' }}>
+                                            {tab}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
                         </View>
                     </ScrollView>
                 </View>
@@ -1103,24 +1177,24 @@ export default function MachineryEquipmentScreen() {
                                 <X size={18} color="#6B7280" />
                             </TouchableOpacity>
                         </View>
-                        {ALL_PROJECTS.map(proj => (
+                        {projectOptions.map(proj => (
                             <TouchableOpacity
-                                key={proj.id}
-                                onPress={() => { setSelectedProject(proj); setProjectModalOpen(false); }}
+                                key={proj.id ?? 'all'}
+                                onPress={() => { setSelectedProject({ id: proj.id ? parseInt(proj.id) : null, name: proj.name }); setProjectModalOpen(false); }}
                                 style={{
                                     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
                                     paddingHorizontal: 16, paddingVertical: 14,
                                     borderBottomWidth: 1, borderBottomColor: '#F9FAFB',
-                                    backgroundColor: selectedProject.id === proj.id ? '#EFF6FF' : '#fff',
+                                    backgroundColor: String(selectedProject.id) === String(proj.id) ? '#EFF6FF' : '#fff',
                                 }}
                             >
                                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: proj.id === 'all' ? '#2563EB' : '#16A34A', marginRight: 12 }} />
-                                    <Text style={{ fontSize: 14, color: selectedProject.id === proj.id ? '#1D4ED8' : '#374151', fontWeight: selectedProject.id === proj.id ? '700' : '400' }}>
+                                    <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: proj.id === null ? '#2563EB' : '#16A34A', marginRight: 12 }} />
+                                    <Text style={{ fontSize: 14, color: String(selectedProject.id) === String(proj.id) ? '#1D4ED8' : '#374151', fontWeight: String(selectedProject.id) === String(proj.id) ? '700' : '400' }}>
                                         {proj.name}
                                     </Text>
                                 </View>
-                                {selectedProject.id === proj.id && (
+                                {String(selectedProject.id) === String(proj.id) && (
                                     <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#2563EB', alignItems: 'center', justifyContent: 'center' }}>
                                         <Text style={{ color: '#fff', fontSize: 12, fontWeight: '900' }}>✓</Text>
                                     </View>

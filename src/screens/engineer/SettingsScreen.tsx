@@ -1,12 +1,78 @@
 import { useNavigation } from 'expo-router';
 import { AlertTriangle, BellRing, Calendar, Check, Settings2, ShieldAlert, UploadCloud, User } from 'lucide-react-native';
 import { useState, useEffect } from 'react';
-import { ScrollView, Switch, Text, TextInput, TouchableOpacity, View, ActivityIndicator, Alert, Image } from 'react-native';
+import { ScrollView, Switch, Text, TextInput, TouchableOpacity, View, ActivityIndicator, Alert, Image, Modal } from 'react-native';
 import TopHeader from '../../components/TopHeader';
 import { settingsService, AppSettings, UserProfile, DEFAULT_SETTINGS, DEFAULT_PROFILE } from '../../services/settingsService';
 import * as ImagePicker from 'expo-image-picker';
 import { useProjectContext } from '../../contexts/ProjectContext';
+import { ChevronDown } from 'lucide-react-native';
 
+// ─── Modal Dropdown ───────────────────────────────────────────────────────────
+function ModalDropdown({
+    options, value, onSelect, label, placeholder
+}: { options: {id: string | null, name: string}[]; value: string | null; onSelect: (v: string | null) => void; label: string, placeholder?: string }) {
+    const [open, setOpen] = useState(false);
+    const selectedObj = options.find(o => String(o.id) === String(value)) || options[0];
+    
+    return (
+        <>
+            <TouchableOpacity
+                onPress={() => setOpen(true)}
+                style={{
+                    flexDirection: 'row', alignItems: 'center',
+                    backgroundColor: '#fff', borderWidth: 1, borderColor: '#D1D5DB',
+                    borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12,
+                    minWidth: 150, width: '100%', justifyContent: 'space-between'
+                }}
+            >
+                <Text style={{ flex: 1, fontSize: 14, color: '#374151', fontWeight: '500' }} numberOfLines={1}>
+                    {selectedObj?.name || placeholder || 'Select...'}
+                </Text>
+                <ChevronDown size={16} color="#6B7280" style={{ marginLeft: 8 }} />
+            </TouchableOpacity>
+            <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+                <TouchableOpacity
+                    style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.38)', justifyContent: 'center' }}
+                    activeOpacity={1}
+                    onPress={() => setOpen(false)}
+                >
+                    <View style={{ marginHorizontal: 28, backgroundColor: '#fff', borderRadius: 14, overflow: 'hidden', elevation: 20 }}>
+                        <View style={{ paddingHorizontal: 16, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
+                            <Text style={{ fontSize: 14, fontWeight: '700', color: '#1F2937' }}>{label}</Text>
+                        </View>
+                        <ScrollView style={{ maxHeight: 300 }}>
+                            {options.map(opt => {
+                                const isSelected = String(value) === String(opt.id);
+                                return (
+                                    <TouchableOpacity
+                                        key={String(opt.id)}
+                                        onPress={() => { onSelect(opt.id); setOpen(false); }}
+                                        style={{
+                                            flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                                            paddingHorizontal: 16, paddingVertical: 13,
+                                            backgroundColor: isSelected ? '#EFF6FF' : '#fff',
+                                            borderBottomWidth: 1, borderBottomColor: '#F9FAFB',
+                                        }}
+                                    >
+                                        <Text style={{ fontSize: 14, color: isSelected ? '#2563EB' : '#374151', fontWeight: isSelected ? '700' : '400' }}>
+                                            {opt.name}
+                                        </Text>
+                                        {isSelected && (
+                                            <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: '#2563EB', alignItems: 'center', justifyContent: 'center' }}>
+                                                <Text style={{ color: '#fff', fontSize: 11, fontWeight: '900' }}>✓</Text>
+                                            </View>
+                                        )}
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </ScrollView>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+        </>
+    );
+}
 export default function SettingsScreen() {
     const navigation = useNavigation();
     const { projects, activeProjectId, setActiveProject, loading: contextLoading } = useProjectContext();
@@ -363,24 +429,18 @@ export default function SettingsScreen() {
                             <Text className="text-xs font-bold text-gray-500 mb-2 mt-2">ASSIGNED PROJECTS</Text>
                             
                             <View className="mt-2">
-                                {(projects || []).map((project: any, idx: number) => {
-                                    const projId = project?.id ?? project?.project_id ?? idx;
-                                    const projName = project?.name || project?.project_name || 'Unnamed Project';
-                                    return (
-                                        <TouchableOpacity 
-                                            key={`proj-${projId}`}
-                                            onPress={() => setActiveProject(projId)}
-                                            className={`p-4 rounded-md border flex-row items-center justify-between mb-2 ${activeProjectId === projId ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}
-                                        >
-                                            <Text className={`font-medium ${activeProjectId === projId ? 'text-blue-700' : 'text-gray-700'}`}>
-                                                {projName}
-                                            </Text>
-                                            {activeProjectId === projId && <Check size={16} color="#1D4ED8" />}
-                                        </TouchableOpacity>
-                                    );
-                                })}
+                                <ModalDropdown 
+                                    label="Select Project"
+                                    placeholder="Choose a project..."
+                                    value={activeProjectId ? String(activeProjectId) : null}
+                                    onSelect={(v) => { if (v) setActiveProject(Number(v)); }}
+                                    options={(projects || []).map((project: any, idx: number) => ({
+                                        id: project?.id ?? project?.project_id ?? String(idx),
+                                        name: project?.name || project?.project_name || 'Unnamed Project'
+                                    }))}
+                                />
                                 {(projects || []).length === 0 && (
-                                    <Text className="text-sm text-gray-500 mt-2 italic">No projects assigned.</Text>
+                                    <Text className="text-sm text-gray-500 mt-4 italic">No projects assigned.</Text>
                                 )}
                             </View>
                         </View>

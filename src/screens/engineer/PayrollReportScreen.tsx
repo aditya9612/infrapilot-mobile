@@ -1,23 +1,39 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import TopHeader from '../../components/TopHeader';
 import { ChevronDown, Download, FileText } from 'lucide-react-native';
-
-const PAYROLL_DATA = [
-    { id: '1', name: 'Amit', initials: 'A', skill: 'SKILLED', wage: '₹800', days: '1', ot: '0h', total: '₹0', status: 'ACTIVE' },
-    { id: '2', name: 'GAURAV', initials: 'G', skill: 'SKILLED', wage: '₹10', days: '2', ot: '0h', total: '₹0', status: 'ACTIVE' },
-    { id: '3', name: 'Ramesh Sharma', initials: 'R', skill: 'SKILLED', wage: '₹850', days: '16', ot: '1.0800000429153442h', total: '₹3,470.375', status: 'ACTIVE' },
-];
+import { useProjectContext } from '../../contexts/ProjectContext';
+import { payrollService } from '../../services/payrollService';
 
 export default function PayrollReportsScreen() {
+    const { activeProjectName, activeProjectId } = useProjectContext();
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [selectedFilter, setSelectedFilter] = useState('Aggregate Report');
+    const [payrollData, setPayrollData] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        const fetchPayroll = async () => {
+            setIsLoading(true);
+            try {
+                const res = await payrollService.getActivePayroll(activeProjectId ?? undefined);
+                const arr = res?.data ?? res ?? [];
+                setPayrollData(Array.isArray(arr) ? arr : []);
+            } catch (error) {
+                console.error(error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchPayroll();
+    }, [activeProjectId]);
+
 
     return (
         <View className="flex-1 bg-gray-50">
             <TopHeader 
                 title="Financial Intelligence" 
-                subtitle="Engineer > Human Resources > Payroll Reports" 
+                subtitle={`Engineer > ${activeProjectName} > Payroll Reports`}
             />
             
             <ScrollView className="flex-1 px-4 py-6" showsVerticalScrollIndicator={false}>
@@ -146,32 +162,37 @@ export default function PayrollReportsScreen() {
                                 <Text className="w-24 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Status</Text>
                             </View>
 
-                            {/* Table Rows */}
-                            {PAYROLL_DATA.map((row, index) => (
-                                <View key={row.id} className={`flex-row items-center px-6 py-4 ${index !== PAYROLL_DATA.length - 1 ? 'border-b border-gray-50' : ''}`}>
-                                    <View className="w-48 flex-row items-center">
-                                        <View className="w-8 h-8 rounded-full bg-blue-100 items-center justify-center mr-3">
-                                            <Text className="text-blue-600 font-bold">{row.initials}</Text>
+                            {isLoading ? (
+                                <View className="p-8 items-center"><ActivityIndicator color="#3B82F6" size="large" /></View>
+                            ) : payrollData.length === 0 ? (
+                                <View className="p-8 items-center"><Text className="text-gray-500">No payroll records found.</Text></View>
+                            ) : (
+                                payrollData.map((row: any, index: number) => (
+                                    <View key={row.id || index} className={`flex-row items-center px-6 py-4 ${index !== payrollData.length - 1 ? 'border-b border-gray-50' : ''}`}>
+                                        <View className="w-48 flex-row items-center">
+                                            <View className="w-8 h-8 rounded-full bg-blue-100 items-center justify-center mr-3">
+                                                <Text className="text-blue-600 font-bold">{row.initials || (row.name || row.labour_name || '?')[0].toUpperCase()}</Text>
+                                            </View>
+                                            <Text className="text-sm font-semibold text-gray-900">{row.name || row.labour_name}</Text>
                                         </View>
-                                        <Text className="text-sm font-semibold text-gray-900">{row.name}</Text>
-                                    </View>
-                                    
-                                    <View className="w-32 items-center">
-                                        <View className="bg-gray-100 px-2 py-1 rounded">
-                                            <Text className="text-[10px] font-bold text-gray-600 uppercase">{row.skill}</Text>
+                                        
+                                        <View className="w-32 items-center">
+                                            <View className="bg-gray-100 px-2 py-1 rounded">
+                                                <Text className="text-[10px] font-bold text-gray-600 uppercase">{row.skill || row.skill_type || '-'}</Text>
+                                            </View>
+                                        </View>
+                                        
+                                        <Text className="w-32 text-sm font-bold text-gray-900 text-center">{row.wage || row.daily_wage || '-'}</Text>
+                                        <Text className="w-32 text-sm font-medium text-gray-600 text-center">{row.days || row.days_present || 0}</Text>
+                                        <Text className="w-40 text-sm font-medium text-orange-500 text-center">{row.ot || row.ot_hours || 0}</Text>
+                                        <Text className="w-40 text-sm font-bold text-green-600 text-center">{row.total || row.total_wage || row.earned || '-'}</Text>
+                                        
+                                        <View className="w-24 items-end">
+                                            <Text className="text-[10px] font-bold text-green-500 uppercase tracking-wider">{row.status || 'ACTIVE'}</Text>
                                         </View>
                                     </View>
-                                    
-                                    <Text className="w-32 text-sm font-bold text-gray-900 text-center">{row.wage}</Text>
-                                    <Text className="w-32 text-sm font-medium text-gray-600 text-center">{row.days}</Text>
-                                    <Text className="w-40 text-sm font-medium text-orange-500 text-center">{row.ot}</Text>
-                                    <Text className="w-40 text-sm font-bold text-green-600 text-center">{row.total}</Text>
-                                    
-                                    <View className="w-24 items-end">
-                                        <Text className="text-[10px] font-bold text-green-500 uppercase tracking-wider">{row.status}</Text>
-                                    </View>
-                                </View>
-                            ))}
+                                ))
+                            )}
                         </View>
                     </ScrollView>
 
@@ -184,7 +205,7 @@ export default function PayrollReportsScreen() {
                             </View>
                             <ChevronDown size={14} color="#6B7280" className="ml-1" />
                         </View>
-                        <Text className="text-xs text-gray-500">Showing 1 - {PAYROLL_DATA.length} of {PAYROLL_DATA.length} records</Text>
+                        <Text className="text-xs text-gray-500">Showing {payrollData.length === 0 ? 0 : 1} - {payrollData.length} of {payrollData.length} records</Text>
                         <View className="flex-row items-center">
                             <TouchableOpacity className="px-2 py-1 border border-gray-200 rounded mr-1 bg-white">
                                 <Text className="text-gray-400">&lt;</Text>

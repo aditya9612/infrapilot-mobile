@@ -1,12 +1,48 @@
 import TopHeader from '../../components/TopHeader';
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TextInput, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useNavigation } from 'expo-router';
 import { Menu, Bell, Search, ChevronDown, Plus, Info, Edit3, ShieldAlert, ShieldCheck, User } from 'lucide-react-native';
+import { useProjectContext } from '../../contexts/ProjectContext';
+import { qualityService } from '../../services/qualityService';
 
 export default function QualityControlScreen() {
     const navigation = useNavigation();
     const [activeTab, setActiveTab] = useState('inspection');
+    const { activeProjectId, projects } = useProjectContext();
+    const activeProjectName = projects.find((p: any) => p.id === activeProjectId || p.project_id === activeProjectId)?.name || (projects.find((p: any) => p.id === activeProjectId || p.project_id === activeProjectId) as any)?.project_name || 'Sara City';
+
+    const [loading, setLoading] = useState(true);
+    const [inspections, setInspections] = useState<any[]>([]);
+    const [reports, setReports] = useState<any[]>([]);
+    const [stats, setStats] = useState<any>(null);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                const pid = activeProjectId ? Number(activeProjectId) : undefined;
+                
+                if (activeTab === 'inspection') {
+                    const [inspectionsRes, statsRes] = await Promise.all([
+                        qualityService.getInspections(pid),
+                        qualityService.getDashboardStats(pid)
+                    ]);
+                    setInspections(Array.isArray(inspectionsRes) ? inspectionsRes : (inspectionsRes?.data || []));
+                    setStats(statsRes || {});
+                } else {
+                    const reportsRes = await qualityService.getReports(pid);
+                    setReports(Array.isArray(reportsRes) ? reportsRes : (reportsRes?.data || []));
+                }
+            } catch (error) {
+                console.error('Error fetching quality control data:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
+    }, [activeProjectId, activeTab]);
 
     const StatCard = ({ title, value, subtitle, valueColor = "text-gray-900" }: any) => (
         <View className="flex-1 min-w-[200px] p-2">
@@ -19,11 +55,11 @@ export default function QualityControlScreen() {
     );
 
     const PassFailBadge = ({ status }: any) => {
-        const isPass = status === 'PASS';
+        const isPass = status === 'PASS' || status === 'COMPLIANT' || status === 'Pass';
         const colors = isPass ? "bg-emerald-50 border-emerald-500 text-emerald-600" : "bg-rose-50 border-rose-500 text-rose-600";
         return (
             <View className={`px-4 py-1 rounded-full border ${colors}`}>
-                <Text className={`text-[10px] font-bold uppercase tracking-wider ${isPass ? 'text-emerald-600' : 'text-rose-600'}`}>{status}</Text>
+                <Text className={`text-[10px] font-bold uppercase tracking-wider ${isPass ? 'text-emerald-600' : 'text-rose-600'}`}>{status || 'UNKNOWN'}</Text>
             </View>
         );
     };
@@ -31,7 +67,7 @@ export default function QualityControlScreen() {
     return (
         <View className="flex-1 bg-[#F8FAFC] flex-col">
             
-            <TopHeader title="QC Inspection" subtitle="Engineer • Quality Control • Inspection Vault" />
+            <TopHeader title="QC Inspection" subtitle={`Engineer > ${activeProjectName} > Quality Control`} />
 
 
             <ScrollView className="flex-1" contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
@@ -50,10 +86,10 @@ export default function QualityControlScreen() {
 
                 {/* Stats Row */}
                 <View className="flex-row flex-wrap -mx-2 mb-6">
-                    <StatCard title="TOTAL AUDITS" value="15" subtitle="Verified Logs" />
-                    <StatCard title="PASS TESTS" value="11" subtitle="Pass Tests" valueColor="text-emerald-500" />
-                    <StatCard title="FAILED TESTS" value="4" subtitle="Failed Tests" valueColor="text-rose-500" />
-                    <StatCard title="AUDIT MOMENTUM" value="73%" subtitle="Overall Pass Percentage" valueColor="text-blue-500" />
+                    <StatCard title="TOTAL AUDITS" value={stats?.total_audits || "0"} subtitle="Verified Logs" />
+                    <StatCard title="PASS TESTS" value={stats?.pass_tests || "0"} subtitle="Pass Tests" valueColor="text-emerald-500" />
+                    <StatCard title="FAILED TESTS" value={stats?.failed_tests || "0"} subtitle="Failed Tests" valueColor="text-rose-500" />
+                    <StatCard title="AUDIT MOMENTUM" value={stats?.pass_percentage ? `${stats.pass_percentage}%` : "0%"} subtitle="Overall Pass Percentage" valueColor="text-blue-500" />
                 </View>
 
                 {/* Tabs */}
@@ -98,95 +134,97 @@ export default function QualityControlScreen() {
                         </View>
                     )}
 
-                    {/* Responsive Data Table */}
-                    <ScrollView horizontal showsHorizontalScrollIndicator={true} className="w-full">
-                        
-                        {activeTab === 'inspection' && (
-                            <View className="min-w-[1200px] flex-1">
-                                {/* Table Header */}
-                                <View className="flex-row items-center px-6 py-4 bg-gray-50/50 border-b border-gray-100">
-                                    <Text className="w-32 text-[9px] font-bold text-gray-400 uppercase tracking-widest">PROJECT</Text>
-                                    <Text className="w-40 text-[9px] font-bold text-gray-400 uppercase tracking-widest">AUDIT DETAILS</Text>
-                                    <Text className="w-48 text-[9px] font-bold text-gray-400 uppercase tracking-widest">TEST DESCRIPTION</Text>
-                                    <Text className="w-24 text-[9px] font-bold text-gray-400 uppercase tracking-widest text-center">STATUS</Text>
-                                    <Text className="w-32 text-[9px] font-bold text-gray-400 uppercase tracking-widest text-center">VALUES</Text>
-                                    <Text className="flex-1 text-[9px] font-bold text-gray-400 uppercase tracking-widest">AUDITOR</Text>
-                                    <Text className="w-24 text-[9px] font-bold text-gray-400 uppercase tracking-widest text-right">ACTIONS</Text>
-                                </View>
+                    {loading ? (
+                        <View className="py-10 items-center">
+                            <ActivityIndicator size="large" color="#3B82F6" />
+                            <Text className="text-gray-500 mt-4">Loading data...</Text>
+                        </View>
+                    ) : (
+                        <ScrollView horizontal showsHorizontalScrollIndicator={true} className="w-full">
+                            
+                            {activeTab === 'inspection' && (
+                                <View className="min-w-[1200px] flex-1">
+                                    {/* Table Header */}
+                                    <View className="flex-row items-center px-6 py-4 bg-gray-50/50 border-b border-gray-100">
+                                        <Text className="w-32 text-[9px] font-bold text-gray-400 uppercase tracking-widest">PROJECT</Text>
+                                        <Text className="w-40 text-[9px] font-bold text-gray-400 uppercase tracking-widest">AUDIT DETAILS</Text>
+                                        <Text className="w-48 text-[9px] font-bold text-gray-400 uppercase tracking-widest">TEST DESCRIPTION</Text>
+                                        <Text className="w-24 text-[9px] font-bold text-gray-400 uppercase tracking-widest text-center">STATUS</Text>
+                                        <Text className="w-32 text-[9px] font-bold text-gray-400 uppercase tracking-widest text-center">VALUES</Text>
+                                        <Text className="flex-1 text-[9px] font-bold text-gray-400 uppercase tracking-widest">AUDITOR</Text>
+                                        <Text className="w-24 text-[9px] font-bold text-gray-400 uppercase tracking-widest text-right">ACTIONS</Text>
+                                    </View>
 
-                                {/* Dummy Rows */}
-                                {[
-                                    { p: 'Sara City', a: 'General', t: 'Slump Test', sub: 'No additional remarks', s: 'PASS', r: '10', std: '20', u: 'SUMMIT' },
-                                    { p: 'Sara City', a: 'Electrical', t: 'Visual Check', sub: '.gcv/gfd', s: 'PASS', r: '20', std: '2', u: 'NAND DIXIT' },
-                                    { p: 'Sara City', a: 'Steel', t: 'Cube Test', sub: 'No additional remarks', s: 'PASS', r: '10', std: '3', u: 'KOMAL DHANGALE' },
-                                    { p: 'Sara City', a: 'Steel', t: 'Slump Test', sub: 'No additional remarks', s: 'PASS', r: '20', std: '100', u: 'KOMAL DHANGALE' },
-                                    { p: 'Sara City', a: 'general', t: 'Slump Test', sub: 'No additional remarks', s: 'PASS', r: '0', std: '10', u: 'SUMMIT' },
-                                    { p: 'Sara City', a: 'Steel', t: 'Cube Test', sub: 'asdfgasgjks', s: 'PASS', r: '10', std: '10', u: 'RAHUL PATIL' },
-                                    { p: 'Sara City', a: 'Concrete', t: 'Cube Test', sub: 'asdfgag', s: 'FAIL', r: '10', std: '20', u: 'KESHAV PATIL' },
-                                    { p: 'Sara City', a: 'construction', t: 'slum test', sub: 'No additional remarks', s: 'PASS', r: '200', std: '200', u: 'TEJAS' },
-                                ].map((row, i) => (
-                                    <View key={i} className="flex-row items-center px-6 py-4 border-b border-gray-50 hover:bg-gray-50">
-                                        <Text className="w-32 text-[11px] font-bold text-gray-900">{row.p}</Text>
-                                        <Text className="w-40 text-[11px] font-bold text-gray-900">{row.a}</Text>
-                                        <View className="w-48 pr-4">
-                                            <Text className="text-[11px] font-bold text-gray-900 mb-0.5">{row.t}</Text>
-                                            <View className="flex-row items-center">
-                                                <Edit3 size={8} color="#9CA3AF" className="mr-1" />
-                                                <Text className="text-[9px] text-gray-400" numberOfLines={1}>{row.sub}</Text>
+                                    {/* Data Rows */}
+                                    {inspections.map((row: any, i: number) => (
+                                        <View key={row.id || i} className="flex-row items-center px-6 py-4 border-b border-gray-50 hover:bg-gray-50">
+                                            <Text className="w-32 text-[11px] font-bold text-gray-900">{row.project_name || activeProjectName}</Text>
+                                            <Text className="w-40 text-[11px] font-bold text-gray-900">{row.audit_details || row.category || '-'}</Text>
+                                            <View className="w-48 pr-4">
+                                                <Text className="text-[11px] font-bold text-gray-900 mb-0.5">{row.test_description || row.title || '-'}</Text>
+                                                <View className="flex-row items-center">
+                                                    <Edit3 size={8} color="#9CA3AF" className="mr-1" />
+                                                    <Text className="text-[9px] text-gray-400" numberOfLines={1}>{row.remarks || 'No remarks'}</Text>
+                                                </View>
+                                            </View>
+                                            <View className="w-24 items-center">
+                                                <PassFailBadge status={row.status || 'PENDING'} />
+                                            </View>
+                                            <View className="w-32 items-center">
+                                                <Text className="text-[10px] font-bold text-gray-900">Result: <Text className="text-gray-700">{row.result || '-'}</Text></Text>
+                                                <Text className="text-[9px] text-gray-500 font-bold">STD: {row.standard_value || '-'}</Text>
+                                            </View>
+                                            <View className="flex-1 flex-row items-center">
+                                                <User size={12} color="#9CA3AF" className="mr-2" />
+                                                <Text className="text-[10px] font-bold text-gray-900 uppercase">{row.auditor_name || '-'}</Text>
+                                            </View>
+                                            <View className="w-24 flex-row justify-end space-x-3 pr-2">
+                                                <Info size={14} color="#9CA3AF" />
+                                                <Edit3 size={14} color="#9CA3AF" />
+                                                <ShieldAlert size={14} color="#9CA3AF" />
                                             </View>
                                         </View>
-                                        <View className="w-24 items-center">
-                                            <PassFailBadge status={row.s} />
+                                    ))}
+                                    
+                                    {inspections.length === 0 && (
+                                        <View className="py-8 items-center justify-center">
+                                            <Text className="text-gray-500">No inspections found.</Text>
                                         </View>
-                                        <View className="w-32 items-center">
-                                            <Text className="text-[10px] font-bold text-gray-900">Result: <Text className="text-gray-700">{row.r}</Text></Text>
-                                            <Text className="text-[9px] text-gray-500 font-bold">STD: {row.std}</Text>
-                                        </View>
-                                        <View className="flex-1 flex-row items-center">
-                                            <User size={12} color="#9CA3AF" className="mr-2" />
-                                            <Text className="text-[10px] font-bold text-gray-900 uppercase">{row.u}</Text>
-                                        </View>
-                                        <View className="w-24 flex-row justify-end space-x-3 pr-2">
-                                            <Info size={14} color="#9CA3AF" />
-                                            <Edit3 size={14} color="#9CA3AF" />
-                                            <ShieldAlert size={14} color="#9CA3AF" />
-                                        </View>
-                                    </View>
-                                ))}
-                            </View>
-                        )}
-
-                        {activeTab === 'reports' && (
-                            <View className="min-w-[1000px] flex-1">
-                                {/* Table Header */}
-                                <View className="flex-row items-center px-6 py-4 bg-gray-50/50 border-b border-gray-100">
-                                    <Text className="w-1/3 text-[9px] font-bold text-gray-400 uppercase tracking-widest">TEST PROTOCOL</Text>
-                                    <Text className="w-1/6 text-[9px] font-bold text-gray-400 uppercase tracking-widest text-center">SAMPLES COUNT</Text>
-                                    <Text className="w-1/6 text-[9px] font-bold text-gray-400 uppercase tracking-widest text-center">COMPLIANT</Text>
-                                    <Text className="w-1/6 text-[9px] font-bold text-gray-400 uppercase tracking-widest text-center">NON-COMPLIANT</Text>
-                                    <Text className="flex-1 text-[9px] font-bold text-gray-400 uppercase tracking-widest text-right">VELOCITY</Text>
+                                    )}
                                 </View>
+                            )}
 
-                                {/* Dummy Rows */}
-                                {[
-                                    { t: 'Slump Test', c: '3', com: '3', ncom: '0', v: '100%' },
-                                    { t: 'Visual Check', c: '2', com: '2', ncom: '0', v: '100%' },
-                                    { t: 'Cube Test', c: '4', com: '2', ncom: '2', v: '50%' },
-                                    { t: 'slum test', c: '2', com: '2', ncom: '0', v: '100%' },
-                                    { t: 'Load Test', c: '2', com: '1', ncom: '1', v: '50%' },
-                                    { t: 'Compression Test', c: '2', com: '1', ncom: '1', v: '50%' },
-                                ].map((row, i) => (
-                                    <View key={i} className="flex-row items-center px-6 py-4 border-b border-gray-50 hover:bg-gray-50">
-                                        <Text className="w-1/3 text-[11px] font-bold text-gray-900">{row.t}</Text>
-                                        <Text className="w-1/6 text-[11px] font-bold text-gray-600 text-center">{row.c}</Text>
-                                        <Text className="w-1/6 text-[11px] font-bold text-emerald-500 text-center">{row.com}</Text>
-                                        <Text className="w-1/6 text-[11px] font-bold text-rose-500 text-center">{row.ncom}</Text>
-                                        <Text className="flex-1 text-[11px] font-bold text-blue-600 text-right pr-4">{row.v}</Text>
+                            {activeTab === 'reports' && (
+                                <View className="min-w-[1000px] flex-1">
+                                    {/* Table Header */}
+                                    <View className="flex-row items-center px-6 py-4 bg-gray-50/50 border-b border-gray-100">
+                                        <Text className="w-1/3 text-[9px] font-bold text-gray-400 uppercase tracking-widest">TEST PROTOCOL</Text>
+                                        <Text className="w-1/6 text-[9px] font-bold text-gray-400 uppercase tracking-widest text-center">SAMPLES COUNT</Text>
+                                        <Text className="w-1/6 text-[9px] font-bold text-gray-400 uppercase tracking-widest text-center">COMPLIANT</Text>
+                                        <Text className="w-1/6 text-[9px] font-bold text-gray-400 uppercase tracking-widest text-center">NON-COMPLIANT</Text>
+                                        <Text className="flex-1 text-[9px] font-bold text-gray-400 uppercase tracking-widest text-right">VELOCITY</Text>
                                     </View>
-                                ))}
-                            </View>
-                        )}
-                    </ScrollView>
+
+                                    {/* Data Rows */}
+                                    {reports.map((row: any, i: number) => (
+                                        <View key={row.id || i} className="flex-row items-center px-6 py-4 border-b border-gray-50 hover:bg-gray-50">
+                                            <Text className="w-1/3 text-[11px] font-bold text-gray-900">{row.test_protocol || row.title || '-'}</Text>
+                                            <Text className="w-1/6 text-[11px] font-bold text-gray-600 text-center">{row.samples_count || '0'}</Text>
+                                            <Text className="w-1/6 text-[11px] font-bold text-emerald-500 text-center">{row.compliant || '0'}</Text>
+                                            <Text className="w-1/6 text-[11px] font-bold text-rose-500 text-center">{row.non_compliant || '0'}</Text>
+                                            <Text className="flex-1 text-[11px] font-bold text-blue-600 text-right pr-4">{row.velocity || '0%'}</Text>
+                                        </View>
+                                    ))}
+
+                                    {reports.length === 0 && (
+                                        <View className="py-8 items-center justify-center">
+                                            <Text className="text-gray-500">No test reports found.</Text>
+                                        </View>
+                                    )}
+                                </View>
+                            )}
+                        </ScrollView>
+                    )}
                 </View>
             </ScrollView>
         </View>

@@ -13,7 +13,7 @@ export default function EngineerDashboard() {
     const [data, setData] = useState<EngineerDashboardData | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const { activeProjectId, loading: contextLoading } = useProjectContext();
+    const { activeProjectId, activeProjectName, loading: contextLoading } = useProjectContext();
 
     // Pagination states
     const [timelinePage, setTimelinePage] = useState(1);
@@ -24,48 +24,7 @@ export default function EngineerDashboard() {
     const [expensePerPage, setExpensePerPage] = useState(10);
     const [showExpenseDropdown, setShowExpenseDropdown] = useState(false);
 
-    const MOCK_DATA: any = {
-        project_id: 1,
-        project_name: 'METRO CITY',
-        status: 'Active',
-        progress: 24.74,
-        planned_progress: 9.43,
-        variance: 15.31,
-        vitals: {
-            total_labour_today: 1,
-            active_activities: 1,
-            open_issues: { total: 17, high_priority: 3 },
-            material_stock_status: [{ category: 'Cement', status: 'Low' }]
-        },
-        today_work_summary: [
-            { activity_name: 'kkkkkkkkkkkkkkkkkk', start_time: 'TBA', finish_time: 'TBA', status: 'ON_TRACK', ui_status: 'IN_PROGRESS' }
-        ],
-        discipline_progress: [
-            { discipline: 'Construction', planned_percent: 0, actual_percent: 40.03 },
-            { discipline: 'Yes', planned_percent: 0, actual_percent: 10.5 },
-            { discipline: 'Civil work', planned_percent: 0, actual_percent: 65 },
-            { discipline: 'Pending Work', planned_percent: 0, actual_percent: 50 }
-        ],
-        timeline: [
-            { id: 1, title: 'mildstone for plumbing', start_date: '2026-09-01', end_date: '2026-09-20', status: 'DELAYED' },
-            { id: 2, title: 'Plinth Work Completed', start_date: '2026-09-01', end_date: '2026-09-02', status: 'DELAYED' },
-            { id: 3, title: 'site mapping', start_date: '2026-09-01', end_date: '2026-09-10', status: 'PLANNED' },
-            { id: 4, title: 'stone mildstone', start_date: '2026-09-01', end_date: '2026-09-20', status: 'IN_PROGRESS' },
-            { id: 5, title: 'Ground Floor Slab Completed', start_date: '2026-09-03', end_date: '2026-09-10', status: 'DELAYED' },
-            { id: 6, title: 'Roofing Work', start_date: '2026-09-15', end_date: '2026-09-25', status: 'PLANNED' },
-            { id: 7, title: 'Electrical Wiring', start_date: '2026-09-20', end_date: '2026-10-05', status: 'PLANNED' }
-        ],
-        recent_expenses: [
-            { date: '2026-09-16', type: 'EXPENSE', category: 'Labour', note: 'Labour expense - 2026-09-16', amount: 674 },
-            { date: '2026-09-16', type: 'EXPENSE', category: 'equipment', note: 'null', amount: 1000 },
-            { date: '2026-09-16', type: 'EXPENSE', category: 'Labour Advance', note: 'done', amount: 200 },
-            { date: '2026-09-16', type: 'EXPENSE', category: 'Labour Advance', note: 'personal', amount: 10 },
-            { date: '2026-09-16', type: 'EXPENSE', category: 'Labour Advance', note: 'peersonal', amount: 10 },
-            { date: '2026-09-17', type: 'EXPENSE', category: 'Material', note: 'Cement bags', amount: 5000 },
-            { date: '2026-09-18', type: 'EXPENSE', category: 'Labour', note: 'Weekly payout', amount: 3200 }
-        ],
-        weather: { temp: '31°C', condition: 'Thunderstorm', humidity: '54%', wind: '2 km/h' }
-    };
+
 
     const fetchData = async (isRefetch = false) => {
         if (!activeProjectId) return;
@@ -73,9 +32,10 @@ export default function EngineerDashboard() {
         else setLoading(true);
         try {
             const result = await dashboardService.getEngineerDashboard(activeProjectId.toString());
-            setData(MOCK_DATA); 
+            setData(result); 
         } catch (error: any) {
-            setData(MOCK_DATA);
+            console.error('Failed to fetch dashboard data:', error);
+            setData(null);
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -116,7 +76,7 @@ export default function EngineerDashboard() {
 
     return (
         <View className="flex-1 bg-gray-50 flex-col">
-            <TopHeader title="Dashboard" subtitle="Engineer • Overview • Status" />
+            <TopHeader title="Dashboard" subtitle={`Engineer > ${activeProjectName} > Overview`} />
 
             <ScrollView
                 className="flex-1 px-3 sm:px-4 py-4 sm:py-6"
@@ -145,10 +105,10 @@ export default function EngineerDashboard() {
                 {/* Vitals */}
                 <Text className="text-[11px] font-bold text-gray-400 uppercase tracking-[2px] mb-4">SITE VITALS</Text>
                 <View className="flex-row flex-wrap justify-between gap-y-4 mb-8">
-                    <VitalCard title="TOTAL LABOUR" value="1" subtitle="0 Skilled - 0 Unskilled" colorHex="#3b82f6" />
-                    <VitalCard title="ACTIVE ACTIVITIES" value="1" subtitle="Real-Time Active Tracking" colorHex="#3b82f6" />
-                    <VitalCard title="OPEN ISSUES" value="17" subtitle="3 High Priority" colorHex="#ef4444" />
-                    <VitalCard title="MATERIAL STOCK" value="9" subtitle="5 In Stock - 4 Low/Out" colorHex="#10b981" />
+                    <VitalCard title="TOTAL LABOUR" value={String(data.vitals?.total_labour_today ?? 0)} subtitle="Deployed on site" colorHex="#3b82f6" />
+                    <VitalCard title="ACTIVE ACTIVITIES" value={String(data.vitals?.active_activities ?? 0)} subtitle="Real-Time Active Tracking" colorHex="#3b82f6" />
+                    <VitalCard title="OPEN ISSUES" value={String(data.vitals?.open_issues?.total ?? 0)} subtitle={`${data.vitals?.open_issues?.high_priority ?? 0} High Priority`} colorHex="#ef4444" />
+                    <VitalCard title="MATERIAL STOCK" value={String(data.vitals?.material_stock_status?.length ?? 0)} subtitle={`${data.vitals?.material_stock_status?.filter((m: any) => m.status === 'Low').length ?? 0} Low Stock`} colorHex="#10b981" />
                 </View>
 
                 {/* Main Progress Section */}
@@ -161,19 +121,29 @@ export default function EngineerDashboard() {
                                 <Text className="text-xs text-gray-400 mt-1">Live activity log - Monday, 21 September</Text>
                             </View>
                             <View className="bg-blue-50 px-3 py-1 rounded-full flex-row items-center self-start sm:self-auto">
-                                <Text className="text-[10px] font-bold text-blue-600">1 LIVE</Text>
+                                <Text className="text-[10px] font-bold text-blue-600">{data.today_work_summary?.length ?? 0} LIVE</Text>
                             </View>
                         </View>
                         
                         <View className="bg-gray-50 rounded-xl p-4">
-                            <View className="flex-col sm:flex-row justify-between items-start mb-4 gap-2">
-                                <Text className="text-sm font-bold text-gray-800" numberOfLines={2}>kkkkkkkkkkkkkkkkkk</Text>
-                                <View className="bg-blue-100 px-2 py-1 rounded self-start sm:self-auto">
-                                    <Text className="text-[10px] font-bold text-blue-600">In Progress</Text>
+                            {data.today_work_summary?.length > 0 ? (
+                                data.today_work_summary.map((item: any, idx: number) => (
+                                    <View key={idx} className={idx > 0 ? 'mt-4 pt-4 border-t border-gray-100' : ''}>
+                                        <View className="flex-col sm:flex-row justify-between items-start mb-4 gap-2">
+                                            <Text className="text-sm font-bold text-gray-800" numberOfLines={2}>{item.activity_name ?? item.title ?? 'Activity'}</Text>
+                                            <View className="bg-blue-100 px-2 py-1 rounded self-start sm:self-auto">
+                                                <Text className="text-[10px] font-bold text-blue-600">{item.ui_status ?? item.status ?? 'In Progress'}</Text>
+                                            </View>
+                                        </View>
+                                        <Text className="text-xs text-gray-500 mb-4">Start: {item.start_time ?? 'TBA'} - Finish: {item.finish_time ?? 'TBA'}</Text>
+                                        <Text className="text-xs font-bold text-gray-500">Status: <Text className="text-emerald-500">{item.status ?? 'N/A'}</Text></Text>
+                                    </View>
+                                ))
+                            ) : (
+                                <View className="p-6 items-center">
+                                    <Text className="text-gray-400 text-sm">No activities logged today</Text>
                                 </View>
-                            </View>
-                            <Text className="text-xs text-gray-500 mb-4">Start: TBA - Finish: TBA</Text>
-                            <Text className="text-xs font-bold text-gray-500">Status: <Text className="text-emerald-500">ON_TRACK</Text></Text>
+                            )}
                         </View>
                     </View>
 

@@ -1,33 +1,48 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import TopHeader from '../../components/TopHeader';
 import { Search, Filter, Calendar, ChevronLeft, ChevronRight } from 'lucide-react-native';
-
-const ACTIVE_PAYROLL_DATA = [
-    { id: '1', initials: 'R', name: 'Ramesh Sharma', labId: 'LAB001', attendance: '27h', ot: '+9H OT', rate: '₹850', wage: '₹2,898.75', status: 'PARTIAL', execution: 'PENDING' },
-    { id: '2', initials: 'r', name: 'rahul kumar', labId: 'LAB012', attendance: '0h', ot: '+0H OT', rate: '₹100', wage: '₹1.25', status: 'PENDING', execution: 'PENDING' },
-    { id: '3', initials: 'K', name: 'Karan', labId: 'LAB009', attendance: '9h', ot: '+1H OT', rate: '₹100', wage: '₹113', status: 'PENDING', execution: 'PENDING' },
-    { id: '4', initials: 'S', name: 'sahil', labId: 'LAB005', attendance: '0h', ot: '+0H OT', rate: '₹100', wage: '₹0', status: 'PAID', execution: 'PAID' },
-    { id: '5', initials: 'P', name: 'Pratik Kapoor', labId: 'LAB006', attendance: '0h', ot: '+0H OT', rate: '₹1000', wage: '₹0', status: 'PAID', execution: 'PAID' },
-    { id: '6', initials: 'K', name: 'KOMAL', labId: 'LAB013', attendance: '7h', ot: '+0H OT', rate: '₹100', wage: '₹85.75', status: 'PENDING', execution: 'PENDING' },
-];
-
-const CONTRACTOR_PAYMENT_DATA = [
-    { id: '1', vendor: 'KOMAL BHANGALE', liability: '₹2,888.75', liquidated: '₹10', pending: '₹2,888.75', lastTrans: '-' },
-    { id: '2', vendor: 'Independent', liability: '₹200', liquidated: '₹0', pending: '₹200', lastTrans: '-' },
-];
-
-const WEEKLY_VELOCITY_DATA = [
-    { id: '1', cycle: 'Interval Cycle #30', dutyDays: '-', verified: '1 Verified', opsHrs: '-', otEff: '-', gross: '₹0' },
-    { id: '2', cycle: 'Interval Cycle #31', dutyDays: '-', verified: '4 Verified', opsHrs: '-', otEff: '-', gross: '₹449.438' },
-    { id: '3', cycle: 'Interval Cycle #32', dutyDays: '-', verified: '11 Verified', opsHrs: '-', otEff: '-', gross: '₹1,921.5' },
-    { id: '4', cycle: 'Interval Cycle #33', dutyDays: '-', verified: '5 Verified', opsHrs: '-', otEff: '-', gross: '₹1,299.438' },
-    { id: '5', cycle: 'Interval Cycle #34', dutyDays: '-', verified: '6 Verified', opsHrs: '-', otEff: '-', gross: '₹0' },
-];
+import { useProjectContext } from '../../contexts/ProjectContext';
+import { payrollService } from '../../services/payrollService';
 
 export default function SalaryAdvancesScreen() {
+    const { activeProjectId, activeProjectName } = useProjectContext();
     const [activeTab, setActiveTab] = useState('ACTIVE PAYROLL');
     const tabs = ['ACTIVE PAYROLL', 'PAYMENT HISTORY', 'CONTRACTOR PAYMENT PENDING', 'WEEKLY VELOCITY'];
+
+    const [activePayroll, setActivePayroll] = useState<any[]>([]);
+    const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
+    const [contractorPending, setContractorPending] = useState<any[]>([]);
+    const [weeklyVelocity, setWeeklyVelocity] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+
+    const loadData = async () => {
+        setIsLoading(true);
+        try {
+            const pid = activeProjectId ? parseInt(activeProjectId.toString()) : undefined;
+            if (activeTab === 'ACTIVE PAYROLL') {
+                const res = await payrollService.getActivePayroll(pid).catch(() => null);
+                setActivePayroll(Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []));
+            } else if (activeTab === 'PAYMENT HISTORY') {
+                const res = await payrollService.getDisbursementHistory(pid).catch(() => null);
+                setPaymentHistory(Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []));
+            } else if (activeTab === 'CONTRACTOR PAYMENT PENDING') {
+                const res = await payrollService.getContractorLiability(pid).catch(() => null);
+                setContractorPending(Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []));
+            } else if (activeTab === 'WEEKLY VELOCITY') {
+                const res = await payrollService.getWeeklyVelocity(pid).catch(() => null);
+                setWeeklyVelocity(Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []));
+            }
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadData();
+    }, [activeTab, activeProjectId]);
 
     const renderActivePayrollTable = () => (
         <ScrollView horizontal showsHorizontalScrollIndicator={true}>
@@ -42,46 +57,59 @@ export default function SalaryAdvancesScreen() {
                     <Text className="w-48 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Execution</Text>
                 </View>
 
-                {ACTIVE_PAYROLL_DATA.map((row, index) => (
-                    <View key={row.id} className={`flex-row items-center px-6 py-4 ${index !== ACTIVE_PAYROLL_DATA.length - 1 ? 'border-b border-gray-50' : ''}`}>
-                        <View className="w-56 flex-row items-center">
-                            <View className="w-8 h-8 rounded-full bg-gray-100 border border-gray-200 items-center justify-center mr-3">
-                                <Text className="text-gray-600 font-bold">{row.initials}</Text>
-                            </View>
-                            <View>
-                                <Text className="text-sm font-semibold text-gray-900">{row.name}</Text>
-                                <Text className="text-[10px] text-gray-400 font-medium">{row.labId}</Text>
-                            </View>
-                        </View>
-                        
-                        <View className="w-32 items-center">
-                            <Text className="text-gray-400 font-bold">-</Text>
-                        </View>
-                        
-                        <View className="w-32 items-center">
-                            <Text className="text-sm font-bold text-gray-900">{row.attendance}</Text>
-                            <Text className="text-[10px] font-bold text-orange-500">{row.ot}</Text>
-                        </View>
-                        
-                        <Text className="w-32 text-sm font-medium text-gray-600 text-center">{row.rate}</Text>
-                        <Text className="w-32 text-sm font-bold text-gray-900 text-center">{row.wage}</Text>
-                        
-                        <View className="w-32 items-center">
-                            <View className={`px-2 py-1 rounded border ${row.status === 'PAID' ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'}`}>
-                                <Text className={`text-[10px] font-bold uppercase ${row.status === 'PAID' ? 'text-green-600' : 'text-orange-500'}`}>{row.status}</Text>
-                            </View>
-                        </View>
+                {isLoading ? (
+                    <View className="py-8"><ActivityIndicator /></View>
+                ) : activePayroll.map((row, index) => {
+                    const initials = row?.worker_name?.charAt(0) || row?.labour_name?.charAt(0) || 'U';
+                    const name = row?.worker_name || row?.labour_name || 'Unknown';
+                    const labId = row?.labour_id || 'LAB-000';
+                    const attendance = row?.attendance || '-';
+                    const ot = row?.overtime ? `+${row.overtime}H OT` : '-';
+                    const rate = row?.daily_rate ? `₹${row.daily_rate}` : '-';
+                    const wage = row?.accrued_wage ? `₹${row.accrued_wage}` : row?.amount ? `₹${row.amount}` : '₹0';
+                    const status = row?.status || 'PENDING';
 
-                        <View className="w-48 flex-row justify-end space-x-2">
-                            <TouchableOpacity className="px-3 py-1.5 bg-orange-500 rounded-full shadow-sm">
-                                <Text className="text-xs font-bold text-white uppercase tracking-wider">Advance</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity className="px-3 py-1.5 bg-blue-600 rounded-full shadow-sm">
-                                <Text className="text-xs font-bold text-white uppercase tracking-wider">₹ Pay Now</Text>
-                            </TouchableOpacity>
+                    return (
+                        <View key={row.id || index} className={`flex-row items-center px-6 py-4 ${index !== activePayroll.length - 1 ? 'border-b border-gray-50' : ''}`}>
+                            <View className="w-56 flex-row items-center">
+                                <View className="w-8 h-8 rounded-full bg-gray-100 border border-gray-200 items-center justify-center mr-3">
+                                    <Text className="text-gray-600 font-bold uppercase">{initials}</Text>
+                                </View>
+                                <View>
+                                    <Text className="text-sm font-semibold text-gray-900">{name}</Text>
+                                    <Text className="text-[10px] text-gray-400 font-medium">{labId}</Text>
+                                </View>
+                            </View>
+                            
+                            <View className="w-32 items-center">
+                                <Text className="text-gray-400 font-bold">-</Text>
+                            </View>
+                            
+                            <View className="w-32 items-center">
+                                <Text className="text-sm font-bold text-gray-900">{attendance}</Text>
+                                <Text className="text-[10px] font-bold text-orange-500">{ot}</Text>
+                            </View>
+                            
+                            <Text className="w-32 text-sm font-medium text-gray-600 text-center">{rate}</Text>
+                            <Text className="w-32 text-sm font-bold text-gray-900 text-center">{wage}</Text>
+                            
+                            <View className="w-32 items-center">
+                                <View className={`px-2 py-1 rounded border ${status === 'PAID' ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'}`}>
+                                    <Text className={`text-[10px] font-bold uppercase ${status === 'PAID' ? 'text-green-600' : 'text-orange-500'}`}>{status}</Text>
+                                </View>
+                            </View>
+
+                            <View className="w-48 flex-row justify-end space-x-2">
+                                <TouchableOpacity className="px-3 py-1.5 bg-orange-500 rounded-full shadow-sm">
+                                    <Text className="text-xs font-bold text-white uppercase tracking-wider">Advance</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity className="px-3 py-1.5 bg-blue-600 rounded-full shadow-sm">
+                                    <Text className="text-xs font-bold text-white uppercase tracking-wider">₹ Pay Now</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
-                    </View>
-                ))}
+                    );
+                })}
             </View>
         </ScrollView>
     );
@@ -97,9 +125,22 @@ export default function SalaryAdvancesScreen() {
                     <Text className="w-40 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">Audit Date</Text>
                     <Text className="w-40 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Verification</Text>
                 </View>
-                <View className="px-6 py-8 items-center justify-center">
-                    <Text className="text-gray-400 font-medium">No payment history available.</Text>
-                </View>
+                {isLoading ? (
+                    <View className="py-8"><ActivityIndicator /></View>
+                ) : paymentHistory.length === 0 ? (
+                    <View className="px-6 py-8 items-center justify-center">
+                        <Text className="text-gray-400 font-medium">No payment history available.</Text>
+                    </View>
+                ) : paymentHistory.map((row, index) => (
+                    <View key={row.id || index} className="flex-row items-center px-6 py-4 border-b border-gray-50">
+                        <Text className="w-56 text-sm font-semibold text-gray-900">{row.name || 'Unknown'}</Text>
+                        <Text className="w-40 text-sm font-medium text-gray-600 text-center">{row.protocol || '-'}</Text>
+                        <Text className="w-40 text-sm font-medium text-gray-600 text-center">{row.channel || '-'}</Text>
+                        <Text className="w-40 text-sm font-bold text-gray-900 text-center">{row.amount ? `₹${row.amount}` : '-'}</Text>
+                        <Text className="w-40 text-sm font-medium text-gray-400 text-center">{row.date || '-'}</Text>
+                        <Text className="w-40 text-sm font-medium text-green-600 text-right">{row.status || 'Verified'}</Text>
+                    </View>
+                ))}
             </View>
         </ScrollView>
     );
@@ -115,13 +156,15 @@ export default function SalaryAdvancesScreen() {
                     <Text className="w-40 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Last Transaction</Text>
                 </View>
 
-                {CONTRACTOR_PAYMENT_DATA.map((row, index) => (
-                    <View key={row.id} className={`flex-row items-center px-6 py-4 ${index !== CONTRACTOR_PAYMENT_DATA.length - 1 ? 'border-b border-gray-50' : ''}`}>
-                        <Text className="w-64 text-sm font-semibold text-gray-900">{row.vendor}</Text>
-                        <Text className="w-40 text-sm font-bold text-gray-600 text-center">{row.liability}</Text>
-                        <Text className="w-40 text-sm font-bold text-green-500 text-center">{row.liquidated}</Text>
-                        <Text className="w-40 text-sm font-bold text-red-500 text-center">{row.pending}</Text>
-                        <Text className="w-40 text-sm font-medium text-gray-400 text-right">{row.lastTrans}</Text>
+                {isLoading ? (
+                    <View className="py-8"><ActivityIndicator /></View>
+                ) : contractorPending.map((row, index) => (
+                    <View key={row.id || index} className={`flex-row items-center px-6 py-4 ${index !== contractorPending.length - 1 ? 'border-b border-gray-50' : ''}`}>
+                        <Text className="w-64 text-sm font-semibold text-gray-900">{row.vendor || row.contractor_name || 'Vendor'}</Text>
+                        <Text className="w-40 text-sm font-bold text-gray-600 text-center">₹{row.liability || row.total_amount || 0}</Text>
+                        <Text className="w-40 text-sm font-bold text-green-500 text-center">₹{row.liquidated || row.paid_amount || 0}</Text>
+                        <Text className="w-40 text-sm font-bold text-red-500 text-center">₹{row.pending || row.balance_amount || 0}</Text>
+                        <Text className="w-40 text-sm font-medium text-gray-400 text-right">{row.lastTrans || row.last_payment_date || '-'}</Text>
                     </View>
                 ))}
             </View>
@@ -140,19 +183,21 @@ export default function SalaryAdvancesScreen() {
                     <Text className="w-48 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Gross Disbursement</Text>
                 </View>
 
-                {WEEKLY_VELOCITY_DATA.map((row, index) => (
-                    <View key={row.id} className={`flex-row items-center px-6 py-4 ${index !== WEEKLY_VELOCITY_DATA.length - 1 ? 'border-b border-gray-50' : ''}`}>
+                {isLoading ? (
+                    <View className="py-8"><ActivityIndicator /></View>
+                ) : weeklyVelocity.map((row, index) => (
+                    <View key={row.id || index} className={`flex-row items-center px-6 py-4 ${index !== weeklyVelocity.length - 1 ? 'border-b border-gray-50' : ''}`}>
                         <View className="w-48 flex-row items-center">
                             <View className="p-1.5 bg-gray-100 rounded mr-2">
                                 <Calendar size={12} color="#6B7280" />
                             </View>
-                            <Text className="text-sm font-semibold text-gray-900">{row.cycle}</Text>
+                            <Text className="text-sm font-semibold text-gray-900">{row.cycle || `Week ${row.week || '-'}`}</Text>
                         </View>
-                        <Text className="w-32 text-sm font-bold text-gray-400 text-center">{row.dutyDays}</Text>
-                        <Text className="w-40 text-sm font-bold text-green-600 text-center">{row.verified}</Text>
-                        <Text className="w-40 text-sm font-bold text-gray-400 text-center">{row.opsHrs}</Text>
-                        <Text className="w-40 text-sm font-bold text-orange-400 text-center">{row.otEff}</Text>
-                        <Text className="w-48 text-sm font-bold text-gray-900 text-right">{row.gross}</Text>
+                        <Text className="w-32 text-sm font-bold text-gray-400 text-center">{row.dutyDays || '-'}</Text>
+                        <Text className="w-40 text-sm font-bold text-green-600 text-center">{row.verified || row.attendance_count || '-'}</Text>
+                        <Text className="w-40 text-sm font-bold text-gray-400 text-center">{row.opsHrs || '-'}</Text>
+                        <Text className="w-40 text-sm font-bold text-orange-400 text-center">{row.otEff || row.overtime_hours || '-'}</Text>
+                        <Text className="w-48 text-sm font-bold text-gray-900 text-right">₹{row.gross || row.total_amount || 0}</Text>
                     </View>
                 ))}
             </View>
@@ -163,7 +208,7 @@ export default function SalaryAdvancesScreen() {
         <View className="flex-1 bg-gray-50">
             <TopHeader 
                 title="Financial Operations" 
-                subtitle="Engineer > Human Resources > Payroll Management" 
+                subtitle={`Engineer > ${activeProjectName} > Payroll`} 
             />
             
             <ScrollView className="flex-1 px-4 py-6" showsVerticalScrollIndicator={false}>

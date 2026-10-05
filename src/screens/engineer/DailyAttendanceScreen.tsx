@@ -2,28 +2,67 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Image } from 'react-native';
 import TopHeader from '../../components/TopHeader';
 import { Clock, MapPin, Download, CheckCircle, Search, Filter, Eye } from 'lucide-react-native';
+import { useProjectContext } from '../../contexts/ProjectContext';
 
-const SELF_ATTENDANCE_HISTORY = [
-    { id: '1', date: '2026-08-25', status: 'present', inTime: '11:58 AM', outTime: '-', workHours: '01:hr', otHours: '0', location: 'View' }
-];
-
-const LABOUR_ATTENDANCE_DATA = [
-    { id: '1', date: '2026-08-25', name: 'GAURAV', inTime: '2026-08-25T00:39:31+00:00', status: 'PRESENT' },
-    { id: '2', date: '2026-08-25', name: 'Amit', inTime: '2026-08-25T00:39:31+00:00', status: 'PRESENT' },
-    { id: '3', date: '2026-08-25', name: 'Unknown Worker', inTime: '2026-08-25T08:29:40+00:00', status: 'PRESENT' },
-];
+import { attendanceService, AttendanceRecord, AttendanceStatus } from '../../services/attendanceService';
+import { ActivityIndicator, RefreshControl } from 'react-native';
 
 export default function DailyAttendanceScreen() {
+    const { activeProjectId, projects } = useProjectContext();
+    const activeProjectName = projects.find(p => String(p.id) === String(activeProjectId))?.name || 'All Projects';
     const [activeTab, setActiveTab] = useState<'self' | 'labour'>('self');
+    const [selfHistory, setSelfHistory] = useState<AttendanceRecord[]>([]);
+    const [labourData, setLabourData] = useState<AttendanceRecord[]>([]);
+    const [todayStatus, setTodayStatus] = useState<AttendanceStatus | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
+
+    const loadData = async () => {
+        setIsLoading(true);
+        try {
+            if (activeTab === 'self') {
+                const [statusRes, historyRes] = await Promise.all([
+                    attendanceService.getTodayStatus(),
+                    attendanceService.getList(String(activeProjectId))
+                ]);
+                setTodayStatus(statusRes);
+                // Filter self history (assuming api returns all, filtering by some current user id is ideal but let's just use the list for now)
+                setSelfHistory(historyRes || []);
+            } else {
+                const labourRes = await attendanceService.getList(String(activeProjectId));
+                setLabourData(labourRes || []);
+            }
+        } catch (error) {
+            console.error('Failed to load attendance data:', error);
+        } finally {
+            setIsLoading(false);
+            setRefreshing(false);
+        }
+    };
+
+    React.useEffect(() => {
+        loadData();
+    }, [activeProjectId, activeTab]);
+
+    const onRefresh = () => {
+        setRefreshing(true);
+        loadData();
+    };
 
     return (
         <View className="flex-1 bg-gray-50">
             <TopHeader 
                 title="Attendance Management" 
-                subtitle="Engineer > Human Resources > Attendance Management" 
+                subtitle={`Engineer > ${activeProjectName} > Attendance Management`} 
             />
             
-            <ScrollView className="flex-1 px-4 py-6" showsVerticalScrollIndicator={false}>
+            <ScrollView 
+                className="flex-1 px-4 py-6" 
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#3B82F6']} />
+                }
+            >
                 
                 {/* Header Title Area */}
                 <View className="flex-row items-center justify-between mb-6">
@@ -78,53 +117,63 @@ export default function DailyAttendanceScreen() {
                 {activeTab === 'self' && (
                     <View>
                         {/* Status Card */}
-                        <View className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm mb-6">
-                            <Text className="text-lg font-bold text-gray-900 mb-1">Today's Status</Text>
-                            <Text className="text-sm text-gray-500 mb-6">Your attendance status for today</Text>
-
-                            <View className="flex-row items-center mb-6">
-                                <MapPin size={16} color="#6B7280" />
-                                <Text className="text-sm text-gray-700 ml-2">City of Westminster, London, England, United Kingdom of Great Britain and Northern Ireland (the)</Text>
+                        {isLoading && !refreshing ? (
+                            <View className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm mb-6 items-center justify-center">
+                                <ActivityIndicator size="small" color="#3B82F6" />
+                                <Text className="mt-2 text-gray-500">Loading today's status...</Text>
                             </View>
+                        ) : (
+                            <View className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm mb-6">
+                                <Text className="text-lg font-bold text-gray-900 mb-1">Today's Status</Text>
+                                <Text className="text-sm text-gray-500 mb-6">Your attendance status for today</Text>
 
-                            <View className="flex-row justify-between mb-6">
-                                <View>
-                                    <View className="flex-row items-center mb-2">
-                                        <Text className="font-semibold text-gray-700">Check-in Time</Text>
-                                        <View className="bg-red-100 px-2 py-0.5 rounded ml-2">
-                                            <Text className="text-[10px] text-red-600 font-bold">Late</Text>
+                                <View className="flex-row items-center mb-6">
+                                    <MapPin size={16} color="#6B7280" />
+                                    <Text className="text-sm text-gray-700 ml-2">{todayStatus?.location || 'Location not found'}</Text>
+                                </View>
+
+                                <View className="flex-row justify-between mb-6">
+                                    <View>
+                                        <View className="flex-row items-center mb-2">
+                                            <Text className="font-semibold text-gray-700">Check-in Time</Text>
+                                            {todayStatus?.status === 'present' && (
+                                                <View className="bg-blue-50 px-2 py-0.5 rounded ml-2 border border-blue-100 flex-row items-center">
+                                                    <MapPin size={10} color="#3B82F6" />
+                                                    <Text className="text-[10px] text-blue-600 font-bold ml-1">Present</Text>
+                                                </View>
+                                            )}
                                         </View>
-                                        <View className="bg-blue-50 px-2 py-0.5 rounded ml-2 border border-blue-100 flex-row items-center">
-                                            <MapPin size={10} color="#3B82F6" />
-                                            <Text className="text-[10px] text-blue-600 font-bold ml-1">Work From Office</Text>
-                                        </View>
+                                        <Text className="text-lg font-bold text-gray-900">{todayStatus?.inTime || '-'}</Text>
                                     </View>
-                                    <Text className="text-lg font-bold text-gray-900">11:58 AM</Text>
+                                    
+                                    <View className="items-end">
+                                        <Text className="font-semibold text-gray-700 mb-2">Check-out Time</Text>
+                                        <Text className="text-lg font-bold text-gray-900">{todayStatus?.outTime || '-'}</Text>
+                                    </View>
                                 </View>
-                                
-                                <View className="items-end">
-                                    <Text className="font-semibold text-gray-700 mb-2">Check-out Time</Text>
-                                    <Text className="text-lg font-bold text-gray-900">-</Text>
+
+                                <View className="mb-6">
+                                    <View className="flex-row items-center mb-2">
+                                        <Clock size={16} color="#6B7280" />
+                                        <Text className="font-semibold text-gray-700 ml-2">Total Work Hours</Text>
+                                    </View>
+                                    <Text className="text-lg font-bold text-gray-900">{todayStatus?.workHours || '-'}</Text>
                                 </View>
-                            </View>
 
-                            <View className="mb-6">
-                                <View className="flex-row items-center mb-2">
-                                    <Clock size={16} color="#6B7280" />
-                                    <Text className="font-semibold text-gray-700 ml-2">Total Work Hours</Text>
+                                <View className="flex-row items-center mb-6">
+                                    <View className="w-2 h-2 bg-green-500 rounded-full mr-2"></View>
+                                    <Text className="text-sm text-green-600 font-medium">Live tracking - updates in real-time</Text>
                                 </View>
-                                <Text className="text-lg font-bold text-gray-900">01:35</Text>
-                            </View>
 
-                            <View className="flex-row items-center mb-6">
-                                <View className="w-2 h-2 bg-green-500 rounded-full mr-2"></View>
-                                <Text className="text-sm text-green-600 font-medium">Live tracking - updates in real-time</Text>
+                                <TouchableOpacity 
+                                    className={`w-full ${todayStatus?.status === 'present' && !todayStatus?.outTime ? 'bg-red-500 shadow-red-200' : 'bg-blue-500 shadow-blue-200'} py-4 rounded-xl items-center justify-center flex-row shadow-sm`}
+                                >
+                                    <Text className="text-white font-bold text-lg ml-2">
+                                        {todayStatus?.status === 'present' && !todayStatus?.outTime ? 'Check Out' : 'Check In'}
+                                    </Text>
+                                </TouchableOpacity>
                             </View>
-
-                            <TouchableOpacity className="w-full bg-red-500 py-4 rounded-xl items-center justify-center flex-row shadow-sm shadow-red-200">
-                                <Text className="text-white font-bold text-lg ml-2">Check Out</Text>
-                            </TouchableOpacity>
-                        </View>
+                        )}
 
                         {/* History Table */}
                         <View className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-8">
@@ -145,21 +194,27 @@ export default function DailyAttendanceScreen() {
                                         <Text className="w-24 text-[10px] font-bold text-gray-500 uppercase">OT Hours</Text>
                                         <Text className="w-24 text-[10px] font-bold text-gray-500 uppercase">Location</Text>
                                     </View>
-                                    {SELF_ATTENDANCE_HISTORY.map((row) => (
-                                        <View key={row.id} className="flex-row items-center px-6 py-4 border-b border-gray-50">
-                                            <Text className="w-32 text-sm text-gray-900">-</Text>
-                                            <Text className="w-32 text-sm text-gray-900">{row.date}</Text>
-                                            <Text className="w-24 text-sm text-gray-900">{row.status}</Text>
-                                            <Text className="w-24 text-sm text-gray-900">{row.inTime}</Text>
-                                            <Text className="w-24 text-sm text-gray-900">{row.outTime}</Text>
-                                            <Text className="w-32 text-sm text-gray-900">{row.workHours}</Text>
-                                            <Text className="w-24 text-sm text-gray-900">{row.otHours}</Text>
-                                            <TouchableOpacity className="w-24 flex-row items-center">
-                                                <Eye size={14} color="#3B82F6" />
-                                                <Text className="text-blue-500 text-sm ml-1">View</Text>
-                                            </TouchableOpacity>
+                                    {selfHistory.length === 0 && !isLoading ? (
+                                        <View className="items-center py-8">
+                                            <Text className="text-gray-400">No attendance records found.</Text>
                                         </View>
-                                    ))}
+                                    ) : (
+                                        selfHistory.map((row) => (
+                                            <View key={row.id} className="flex-row items-center px-6 py-4 border-b border-gray-50">
+                                                <Text className="w-32 text-sm text-gray-900">{activeProjectName || '-'}</Text>
+                                                <Text className="w-32 text-sm text-gray-900">{row.date}</Text>
+                                                <Text className="w-24 text-sm text-gray-900">{row.status}</Text>
+                                                <Text className="w-24 text-sm text-gray-900">{row.inTime || '-'}</Text>
+                                                <Text className="w-24 text-sm text-gray-900">{row.outTime || '-'}</Text>
+                                                <Text className="w-32 text-sm text-gray-900">{row.workHours || '-'}</Text>
+                                                <Text className="w-24 text-sm text-gray-900">{row.otHours || '-'}</Text>
+                                                <TouchableOpacity className="w-24 flex-row items-center">
+                                                    <Eye size={14} color="#3B82F6" />
+                                                    <Text className="text-blue-500 text-sm ml-1">View</Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                        ))
+                                    )}
                                 </View>
                             </ScrollView>
                         </View>
@@ -239,17 +294,22 @@ export default function DailyAttendanceScreen() {
                                         <Text className="w-24 text-[10px] font-bold text-gray-500 uppercase text-center">Status</Text>
                                         <Text className="w-32 text-[10px] font-bold text-gray-500 uppercase text-right">Action</Text>
                                     </View>
-                                    {LABOUR_ATTENDANCE_DATA.map((row) => (
-                                        <View key={row.id} className="flex-row items-center px-6 py-4 border-b border-gray-50">
-                                            <View className="w-12">
-                                                <View className="w-4 h-4 border border-gray-300 rounded" />
-                                            </View>
-                                            <Text className="w-32 text-sm text-gray-900">{row.date}</Text>
-                                            <View className="w-48 flex-row items-center">
-                                                <View className="w-8 h-8 rounded-full bg-blue-100 items-center justify-center mr-2">
-                                                    <Text className="text-blue-600 font-bold">{row.name.charAt(0)}</Text>
+                                    {labourData.length === 0 && !isLoading ? (
+                                        <View className="items-center py-8">
+                                            <Text className="text-gray-400">No labour attendance records found.</Text>
+                                        </View>
+                                    ) : (
+                                        labourData.map((row) => (
+                                            <View key={row.id} className="flex-row items-center px-6 py-4 border-b border-gray-50">
+                                                <View className="w-12">
+                                                    <View className="w-4 h-4 border border-gray-300 rounded" />
                                                 </View>
-                                                <Text className="text-sm font-semibold text-gray-900">{row.name}</Text>
+                                                <Text className="w-32 text-sm text-gray-900">{row.date}</Text>
+                                                <View className="w-48 flex-row items-center">
+                                                <View className="w-8 h-8 rounded-full bg-blue-100 items-center justify-center mr-2">
+                                                    <Text className="text-blue-600 font-bold">{(row.name || 'U').charAt(0)}</Text>
+                                                </View>
+                                                <Text className="text-sm font-semibold text-gray-900">{row.name || 'Unknown'}</Text>
                                             </View>
                                             <View className="w-32 items-center flex-row justify-center">
                                                 <View className="w-2 h-2 bg-green-500 rounded-full mr-1" />
@@ -277,7 +337,8 @@ export default function DailyAttendanceScreen() {
                                                 </TouchableOpacity>
                                             </View>
                                         </View>
-                                    ))}
+                                        ))
+                                    )}
                                 </View>
                             </ScrollView>
                         </View>

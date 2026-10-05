@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Project, projectService } from '../services/projectService';
 import { settingsService } from '../services/settingsService';
 
 interface ProjectContextData {
     activeProjectId: number | null;
     activeProjectName: string;
+    activeProject: Project | null;
     projects: Project[];
     setActiveProject: (id: number | null) => void;
     loading: boolean;
@@ -13,6 +15,7 @@ interface ProjectContextData {
 const ProjectContext = createContext<ProjectContextData>({
     activeProjectId: null,
     activeProjectName: '',
+    activeProject: null,
     projects: [],
     setActiveProject: () => { },
     loading: true,
@@ -23,6 +26,15 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
 
+    const updateActiveProject = async (id: number | null) => {
+        setActiveProjectId(id);
+        if (id !== null) {
+            await AsyncStorage.setItem('activeProjectId', String(id));
+        } else {
+            await AsyncStorage.removeItem('activeProjectId');
+        }
+    };
+
     useEffect(() => {
         const fetchInitialData = async () => {
             try {
@@ -31,21 +43,28 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 const projectsArray = Array.isArray(responseData) ? responseData : ((responseData as any)?.data || (responseData as any)?.items || (responseData as any)?.projects || []);
                 setProjects(projectsArray);
 
-                // Fetch default project from settings
+                // Fetch default project from async storage first, then settings
                 let defaultId = null;
-                try {
-                    const settings = await settingsService.getSettings();
-                    if (settings.default_project_id) {
-                        defaultId = settings.default_project_id;
+                const storedId = await AsyncStorage.getItem('activeProjectId');
+                if (storedId) {
+                    defaultId = Number(storedId);
+                } else {
+                    try {
+                        const settings = await settingsService.getSettings();
+                        if (settings.default_project_id) {
+                            defaultId = settings.default_project_id;
+                        }
+                    } catch (err) {
+                        console.log('Failed to fetch default project from settings, using fallback');
                     }
-                } catch (err) {
-                    console.log('Failed to fetch default project from settings, using fallback');
                 }
 
                 if (defaultId && projectsArray.some((p: any) => p.id === defaultId || p.project_id === defaultId)) {
                     setActiveProjectId(defaultId);
                 } else if (projectsArray.length > 0) {
-                    setActiveProjectId(projectsArray[0].id ?? projectsArray[0].project_id);
+                    const firstId = projectsArray[0].id ?? projectsArray[0].project_id;
+                    setActiveProjectId(firstId);
+                    await AsyncStorage.setItem('activeProjectId', String(firstId));
                 }
             } catch (error) {
                 console.error('Failed to load project context:', error);
@@ -55,7 +74,9 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
                     { id: 2, name: 'Infra Complex Phase 2' }
                 ];
                 setProjects(mockProjects);
-                setActiveProjectId(1);
+                
+                const storedId = await AsyncStorage.getItem('activeProjectId');
+                setActiveProjectId(storedId ? Number(storedId) : 1);
             } finally {
                 setLoading(false);
             }
@@ -71,8 +92,9 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         <ProjectContext.Provider value={{
             activeProjectId,
             activeProjectName,
+            activeProject: activeProject || null,
             projects,
-            setActiveProject: setActiveProjectId,
+            setActiveProject: updateActiveProject,
             loading
         }}>
             {children}
